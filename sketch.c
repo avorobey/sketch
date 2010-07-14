@@ -11,7 +11,8 @@ void die(char *str) {
 
 #define MAX_CELLS 1000000
 uint64_t cells[MAX_CELLS];
-uint32_t next_cell = 0;
+/* start from 1, as index 0 is reserved for errors or invalid values */
+uint32_t next_cell = 1;
 
 #define CHECK_CELLS(i) do { if (next_cell + i >= MAX_CELLS) \
   die("out of cells"); } while(0)
