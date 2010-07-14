@@ -37,16 +37,18 @@ uint32_t next_cell = 1;
 #define SUBSEQUENT(c) (INITIAL(c) || (c>='0' && c<='9') || c=='+' || \
                        c=='-' || c=='.' || c=='@')
 
+#define SYMBOL_NAME(i) (char *)(cells+i+1)
+#define SYMBOL_LEN(i) (cells[i] >> 32)
+
 /* helper func to store a string into cells */
 uint32_t pack_string(char *str, char *end, int type) {
-  CHECK_CELLS(end-str);
-
+  uint32_t len = (end-str+7)/8;
+  CHECK_CELLS(len);
   uint32_t index = next_cell;
-  uint64_t value = type | (uint64_t)(end - str) << 16;
+  uint64_t value = type | (uint64_t)len << 16 | (uint64_t)(end-str) << 32;
   cells[next_cell++] = value;
-  // TODO: actually pack bytes into the cells rather than 1 per cell
-  char *p;
-  for (p = str; p < end; p++) cells[next_cell++] = *p;
+  strncpy(SYMBOL_NAME(index), str, end-str);  
+  next_cell+=len;
   return index;
 }
 
@@ -155,6 +157,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
 void dump_value(uint32_t index, int implicit_paren) {
   uint32_t num, length, i;
   uint32_t index1, index2;
+  char *p;
   switch(cells[index] & TYPE) {
     case T_EMPTY: 
       printf("()"); break;
@@ -163,14 +166,16 @@ void dump_value(uint32_t index, int implicit_paren) {
       printf("%d", num);
       break;
     case T_STR:
-      length = (cells[index] & 0xFFFFFFFF) >> 16;
+      length = SYMBOL_LEN(index);
+      p = SYMBOL_NAME(index);
       putchar('"');
-      for (i = 0; i < length; i++) putchar(cells[index+1+i]);
+      for (i = 0; i < length; i++) putchar(*p++);
       putchar('"');
       break;
     case T_SYM:
-      length = (cells[index] & 0xFFFFFFFF) >> 16;
-      for (i = 0; i < length; i++) putchar(cells[index+1+i]);
+      length = SYMBOL_LEN(index);
+      p = SYMBOL_NAME(index);
+      for (i = 0; i < length; i++) putchar(*p++);
       break;
     case T_PAIR:
       index1 = cells[index+1] >> 32;
