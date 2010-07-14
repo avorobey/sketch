@@ -18,7 +18,8 @@ uint32_t next_cell = 1;
   die("out of cells"); } while(0)
 
 // 4 lowest-order bits for the type
-#define TYPE     15
+#define TYPE_MASK 15
+#define TYPE(i) (cells[i] & TYPE_MASK)
 #define T_NONE   0  /* this cell is unused */
 #define T_INT32  1  /* immediate 32-bit value */
 #define T_PAIR   2  /* pair, uses next cell */
@@ -158,7 +159,7 @@ void dump_value(uint32_t index, int implicit_paren) {
   uint32_t num, length, i;
   uint32_t index1, index2;
   char *p;
-  switch(cells[index] & TYPE) {
+  switch(TYPE(index)) {
     case T_EMPTY: 
       printf("()"); break;
     case T_INT32:
@@ -182,11 +183,11 @@ void dump_value(uint32_t index, int implicit_paren) {
       index2 = cells[index+1] & 0xFFFFFFFF;
       if (!implicit_paren) putchar('(');
       dump_value(index1, 0);
-      if ((cells[index2] & TYPE) == T_PAIR) {
+      if (TYPE(index2) == T_PAIR) {
         putchar(' ');
         dump_value(index2, 1); 
       } else {
-        if ((cells[index2] & TYPE) != T_EMPTY) {
+        if (TYPE(index2) != T_EMPTY) {
           printf(" . ");
           dump_value(index2, 0);
         }
@@ -198,6 +199,45 @@ void dump_value(uint32_t index, int implicit_paren) {
   }
 }
 
+#define CAR(i) (cells[i+1] >> 32)
+#define CDR(i) (cells[i+1] & 0xFFFFFFFF)
+
+uint32_t eval(uint32_t index) {
+  uint32_t sym, val, car, cdr;
+  printf("evalling index %u\n", index);
+  dump_value(index, 0); printf("\nresult:\n");
+  switch(TYPE(index)) {
+    case T_EMPTY:
+    case T_INT32: 
+    case T_BOOL:
+    case T_STR:
+      return index;
+    case T_SYM:
+      val = get_symbol(SYMBOL_NAME(index), SYMBOL_LEN(index));
+      if (val == 0) die("undefined symbol");
+      return val;
+    case T_PAIR:
+      car = CAR(index);
+      cdr = CDR(index);
+      if (TYPE(car) != T_SYM) die("car of eval'd pair is not a symbol");
+      if (TYPE(cdr) != T_PAIR) die("cdr of eval'd pair is not a pair");
+      
+      if (strncmp(SYMBOL_NAME(car), "define", 6) == 0) {
+        /* the only allowed syntax here is (define symbol value) */
+        sym = CAR(cdr);
+        if (TYPE(sym) != T_SYM) die ("define followed by non-symbol");
+        if (TYPE(CDR(cdr)) != T_PAIR) die ("define symbol . smth");
+        val = CAR(CDR(cdr));
+        if (TYPE(CDR(CDR(cdr))) != T_EMPTY) die ("define symbol smth ???");
+        set_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym), val);
+        return val; /* TODO: actually undefined */
+      }
+      break;
+    default:
+      return 0;
+  }
+}
+      
 int main(int argc, char **argv) {
   char buf[512];
   while(1) {
@@ -205,9 +245,15 @@ int main(int argc, char **argv) {
     if (fgets(buf, 512, stdin) == 0) die("fgets() failed");
     char *str = buf;
     uint32_t index;
-    int res = read_value(&str, &index, 0);
-    if (res) { dump_value(index, 0); printf("\n"); }
-    else printf("failed at: %s\n", str);
+    int value = read_value(&str, &index, 0);
+    if (value) { 
+      printf("read value: %u\n", value); dump_value(value, 0); printf("\n");
+      uint32_t res = eval(value);
+      if (res) {
+        dump_value(res, 0); printf("\n");
+      } else printf("eval failed.");
+    }
+    else printf("failed reading at: %s\n", str);
   }
   return 0;
 }
