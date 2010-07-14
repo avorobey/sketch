@@ -20,7 +20,7 @@ uint32_t next_cell = 0;
 #define T_INT32  1  /* immediate 32-bit value */
 #define T_PAIR   2  /* pair, uses next cell */
 #define T_STR    3  /* string */
-#define T_SYM    4  /* string */
+#define T_SYM    4  /* symbol */
 #define T_EMPTY  5  /* empty list, a special value */
 #define T_BOOL   6  /* boolean */
 
