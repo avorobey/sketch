@@ -9,7 +9,7 @@ simplicity will usually be much more important to me.
 
 The plan is to get core features of Scheme working, as outlined in R5RS:
 http://www.schemers.org/Documents/Standards/R5RS/
-In particular, I want lexical scoping, closures, and continations to work. There
+In particular, I want lexical scoping, closures, and continuations to work. There
 will be some sort of garbage collection that is /not/ reference counting.
 
 I'm documenting my progress as I go along in a series of blogposts in Russian at
