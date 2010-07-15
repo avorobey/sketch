@@ -47,6 +47,33 @@ uint32_t next_cell = 1;
 #define CAR(i) (cells[i+1] >> 32)
 #define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
+uint32_t make_pair(uint32_t first, uint32_t second) {
+  CHECK_CELLS(2);
+  uint32_t index = next_cell;
+  cells[next_cell++] = T_PAIR;
+  cells[next_cell++] = ((uint64_t)first << 32) | second;
+  return index;
+} 
+
+uint32_t make_list(uint32_t *values, uint32_t count) {
+  /* Adds its own () at the end, no need to pass it. */
+  if (count < 1) die("bad call to make_list");
+  uint32_t current = count-1;
+
+  /* TODO: should have a handy universal empty list value */
+  CHECK_CELLS(1);
+  uint32_t empty = next_cell;
+  cells[next_cell++] = T_EMPTY;
+
+  uint32_t pair = empty; /* () at first; then pairs in the loop */
+  while(1) {
+    pair = make_pair(values[current], pair);
+    if (current == 0) break;
+    current--;
+  }
+  return pair;
+}
+
 #define SYMBOL_NAME(i) (char *)(cells+i+1)
 #define SYMBOL_LEN(i) (cells[i] >> 32)
 
@@ -135,6 +162,17 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     return 1;
   }
 
+  if (*str == '\'') {
+    str++;
+    uint32_t indices[2];
+    int res = read_value(&str, &indices[1], 0);
+    if (!res) return 0;
+    char *quote = "quote";
+    indices[0] = pack_string(quote, quote+5, T_SYM);
+    *pindex = make_list(indices, 2);
+    *pstr = str;
+    return 1;
+  }
 
   /* is it a symbol? */
   int symbol = 0;
@@ -275,37 +313,8 @@ int eval_args(uint32_t list, uint32_t *args, int *num_args) {
       die("badly formed argument list");
   }
   if (count >= MAX_ARGS) die("more than MAX_ARGS arguments");
-
-  /* add an explicit empty list, too */
-  /* TODO: should have a handy universal empty list value */
-  CHECK_CELLS(1);
-  uint32_t index = next_cell;
-  cells[next_cell++] = T_EMPTY;
-  args[count++] = index;
-
   *num_args = count;
   return 1;
-}
-
-uint32_t make_pair(uint32_t first, uint32_t second) {
-  CHECK_CELLS(2);
-  uint32_t index = next_cell;
-  cells[next_cell++] = T_PAIR;
-  cells[next_cell++] = ((uint64_t)first << 32) | second;
-  return index;
-} 
-
-uint32_t make_list(uint32_t *values, uint32_t count) {
-  /* Assumes w/o checking that the list ends with () */
-  if (count < 2) die("bad call to make_list");
-  uint32_t current = count-2;
-  uint32_t pair = values[count-1]; /* () at first, pairs in the loop */
-  while(1) {
-    pair = make_pair(values[current], pair);
-    if (current == 0) break;
-    current--;
-  }
-  return pair;
 }
 
 uint32_t eval(uint32_t index) {
