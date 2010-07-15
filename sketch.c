@@ -220,16 +220,28 @@ uint32_t eval(uint32_t index) {
       if (TYPE(car) != T_SYM) die("car of eval'd pair is not a symbol");
       if (TYPE(cdr) != T_PAIR) die("cdr of eval'd pair is not a pair");
       
-      if (strncmp(SYMBOL_NAME(car), "define", 6) == 0) {
-        /* the only allowed syntax here is (define symbol value) */
+      int is_define = strncmp(SYMBOL_NAME(car), "define", 6) == 0;
+      int is_set = strncmp(SYMBOL_NAME(car), "set!", 4) == 0;
+      if (is_define || is_set) {
+        /* the only allowed syntax here is ([define/set!] symbol value) */
         sym = CAR(cdr);
-        if (TYPE(sym) != T_SYM) die ("define followed by non-symbol");
-        if (TYPE(CDR(cdr)) != T_PAIR) die ("define symbol . smth");
+        if (TYPE(sym) != T_SYM) die ("define/set! followed by non-symbol");
+        if (TYPE(CDR(cdr)) != T_PAIR) die ("define/set! symbol . smth");
         val = CAR(CDR(cdr));
-        if (TYPE(CDR(CDR(cdr))) != T_EMPTY) die ("define symbol smth ???");
+        if (TYPE(CDR(CDR(cdr))) != T_EMPTY) die ("define/set! too many args");
+        if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0) 
+          die("set! on an undefined symbol");
         set_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym), val);
-        return val; /* TODO: actually undefined */
+        return val; /* TODO: actually undefined value */
       }
+
+      if (strncmp(SYMBOL_NAME(car), "quote", 5) == 0) {
+        /* syntax is: (quote value) */
+        val = CAR(cdr);
+        if (TYPE(CDR(cdr)) != T_EMPTY) die ("bad quote syntax");
+        return val;
+      }
+
       break;
     default:
       return 0;
