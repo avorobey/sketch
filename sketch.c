@@ -9,6 +9,9 @@ void die(char *str) {
   exit(1);
 }
 
+/* max arguments in a function call */
+#define MAX_ARGS 256
+
 #define MAX_CELLS 1000000
 uint64_t cells[MAX_CELLS];
 /* start from 1, as index 0 is reserved for errors or invalid values */
@@ -220,12 +223,17 @@ void register_builtin(char *name, builtin_t func) {
 }
 
 uint32_t car(uint32_t index) {
-  if (TYPE(index) != T_PAIR) return 0;
-  return CAR(index);
+  /* for (car '(1 2 3)), we get here ((1 2 3)), not (1 2 3). Same for all
+     builtins. */
+  /* check that we have just one argument (the list is of size 1) */
+  if (TYPE(index) != T_PAIR || TYPE(CDR(index)) != T_EMPTY) return 0;
+
+  /* pass to this argument - first CAR - and return its first element */
+  return CAR(CAR(index));
 }
 uint32_t cdr(uint32_t index) {
-  if (TYPE(index) != T_PAIR) return 0;
-  return CDR(index);
+  if (TYPE(index) != T_PAIR || TYPE(CDR(index)) != T_EMPTY) return 0;
+  return CDR(CAR(index));
 }
 
 void register_builtins(void) {
@@ -233,8 +241,58 @@ void register_builtins(void) {
   register_builtin("cdr", cdr);
 }
 
+uint32_t eval(uint32_t index);
+
+/* returns true/false on success/failure */
+int eval_args(uint32_t list, uint32_t *args, int *num_args) {
+  printf("the list I'm given: "); dump_value(list, 0); printf("\n");
+  int count = 0;
+  while(count < MAX_ARGS && TYPE(list) != T_EMPTY) {
+    args[count] = eval(CAR(list));
+    if (args[count] == 0) return 0;
+    count++;
+    list = CDR(list);
+    if (TYPE(list) != T_PAIR && TYPE(list) != T_EMPTY) 
+      die("badly formed argument list");
+  }
+  if (count >= MAX_ARGS) die("more than MAX_ARGS arguments");
+
+  /* add an explicit empty list, too */
+  /* TODO: should have a handy universal empty list value */
+  CHECK_CELLS(1);
+  uint32_t index = next_cell;
+  cells[next_cell++] = T_EMPTY;
+  args[count++] = index;
+
+  *num_args = count;
+  return 1;
+}
+
+uint32_t make_pair(uint32_t first, uint32_t second) {
+  CHECK_CELLS(2);
+  uint32_t index = next_cell;
+  cells[next_cell++] = T_PAIR;
+  cells[next_cell++] = ((uint64_t)first << 32) | second;
+  return index;
+} 
+
+uint32_t make_list(uint32_t *values, uint32_t count) {
+  /* Assumes w/o checking that the list ends with () */
+  if (count < 2) die("bad call to make_list");
+  uint32_t current = count-2;
+  uint32_t pair = values[count-1]; /* () at first, pairs in the loop */
+  while(1) {
+    pair = make_pair(values[current], pair);
+    if (current == 0) break;
+    current--;
+  }
+  printf("the list I built: "); dump_value(pair, 0); printf("\n");
+  return pair;
+}
+
 uint32_t eval(uint32_t index) {
   uint32_t sym, val, car, cdr;
+  uint32_t args[MAX_ARGS];
   switch(TYPE(index)) {
     case T_EMPTY:
     case T_INT32: 
@@ -273,7 +331,19 @@ uint32_t eval(uint32_t index) {
         return val;
       }
 
-      return 0;
+      /* special forms end here. Now check if it's a function. */
+      val = get_symbol(SYMBOL_NAME(car), SYMBOL_LEN(car));
+      if (val == 0) die("undefined symbol as func name");
+      if (TYPE(val) != T_FUNC) die("first element in list not a function");
+      if (cells[val] & BLTIN_MASK == 0) die("can only call builtins for now");
+
+      uint32_t num_args;
+      if (!eval_args(cdr, args, &num_args)) return 0;
+      uint32_t list = make_list(args, num_args);
+      builtin_t func = (builtin_t)cells[val+1];
+
+      /* well, there you go */
+      return func(list);
     default:
       return 0;
   }
