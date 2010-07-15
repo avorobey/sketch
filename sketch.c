@@ -27,6 +27,9 @@ uint32_t next_cell = 1;
 #define T_SYM    4  /* symbol */
 #define T_EMPTY  5  /* empty list, a special value */
 #define T_BOOL   6  /* boolean */
+#define T_FUNC   7  /* function, a.k.a. closure */
+
+#define BLTIN_MASK 16
 
 #define SKIP_WS(str) do { while(isspace(*str)) ++str; } while(0)
 
@@ -37,6 +40,9 @@ uint32_t next_cell = 1;
 
 #define SUBSEQUENT(c) (INITIAL(c) || (c>='0' && c<='9') || c=='+' || \
                        c=='-' || c=='.' || c=='@')
+
+#define CAR(i) (cells[i+1] >> 32)
+#define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
 #define SYMBOL_NAME(i) (char *)(cells+i+1)
 #define SYMBOL_LEN(i) (cells[i] >> 32)
@@ -194,13 +200,38 @@ void dump_value(uint32_t index, int implicit_paren) {
         putchar(')');
       }
       break;
+    case T_FUNC:
+      printf("*func*");
+      break;
     default:
       break;
   }
 }
 
-#define CAR(i) (cells[i+1] >> 32)
-#define CDR(i) (cells[i+1] & 0xFFFFFFFF)
+typedef uint32_t (*builtin_t)(uint32_t);
+
+void register_builtin(char *name, builtin_t func) {
+  CHECK_CELLS(2);
+  uint64_t value = T_FUNC | BLTIN_MASK;
+  uint32_t index = next_cell;
+  cells[next_cell++] = value;
+  cells[next_cell++] = (uint64_t)func;
+  set_symbol(name, strlen(name), index);
+}
+
+uint32_t car(uint32_t index) {
+  if (TYPE(index) != T_PAIR) return 0;
+  return CAR(index);
+}
+uint32_t cdr(uint32_t index) {
+  if (TYPE(index) != T_PAIR) return 0;
+  return CDR(index);
+}
+
+void register_builtins(void) {
+  register_builtin("car", car);
+  register_builtin("cdr", cdr);
+}
 
 uint32_t eval(uint32_t index) {
   uint32_t sym, val, car, cdr;
@@ -250,6 +281,7 @@ uint32_t eval(uint32_t index) {
       
 int main(int argc, char **argv) {
   char buf[512];
+  register_builtins();
   while(1) {
     printf("%d cells> ", next_cell);
     if (fgets(buf, 512, stdin) == 0) die("fgets() failed");
