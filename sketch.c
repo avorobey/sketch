@@ -142,10 +142,10 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
 
   /* special identifiers */
   if (*str == '+' || *str == '-') {
-    end = str+2; symbol = 1;
+    end = str+1; symbol = 1;
   }
   if (!symbol && strncmp(str, "...", 3) == 0) {
-    end = str+4; symbol = 1;
+    end = str+3; symbol = 1;
   }
 
   /* regular identifiers */
@@ -265,7 +265,6 @@ uint32_t eval(uint32_t index);
 
 /* returns true/false on success/failure */
 int eval_args(uint32_t list, uint32_t *args, int *num_args) {
-  printf("the list I'm given: "); dump_value(list, 0); printf("\n");
   int count = 0;
   while(count < MAX_ARGS && TYPE(list) != T_EMPTY) {
     args[count] = eval(CAR(list));
@@ -306,7 +305,6 @@ uint32_t make_list(uint32_t *values, uint32_t count) {
     if (current == 0) break;
     current--;
   }
-  printf("the list I built: "); dump_value(pair, 0); printf("\n");
   return pair;
 }
 
