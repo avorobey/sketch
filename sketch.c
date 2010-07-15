@@ -222,9 +222,11 @@ void register_builtin(char *name, builtin_t func) {
   set_symbol(name, strlen(name), index);
 }
 
+/* for (car '(1 2 3)), we get here ((1 2 3)), not (1 2 3). Same for all
+   builtins. */
+/* Builtins can assume that they get a well-formed list. */
+
 uint32_t car(uint32_t index) {
-  /* for (car '(1 2 3)), we get here ((1 2 3)), not (1 2 3). Same for all
-     builtins. */
   /* check that we have just one argument (the list is of size 1) */
   if (TYPE(index) != T_PAIR || TYPE(CDR(index)) != T_EMPTY) return 0;
 
@@ -236,9 +238,27 @@ uint32_t cdr(uint32_t index) {
   return CDR(CAR(index));
 }
 
+uint32_t plus(uint32_t index) {
+  int32_t accum = 0;
+  uint32_t val;
+  while(TYPE(index) != T_EMPTY) {
+    val = CAR(index);
+    if (TYPE(val) != T_INT32) return 0;
+    int32_t signed_val = (int32_t)(cells[val] >> 32);
+    accum += signed_val;
+    index = CDR(index);
+  }
+  CHECK_CELLS(1);
+  uint32_t unsigned_val = (uint32_t)accum;  
+  uint32_t res = next_cell;
+  cells[next_cell++] = T_INT32 | (uint64_t)unsigned_val << 32;
+  return res;
+}
+
 void register_builtins(void) {
   register_builtin("car", car);
   register_builtin("cdr", cdr);
+  register_builtin("+", plus);
 }
 
 uint32_t eval(uint32_t index);
