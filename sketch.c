@@ -204,8 +204,6 @@ void dump_value(uint32_t index, int implicit_paren) {
 
 uint32_t eval(uint32_t index) {
   uint32_t sym, val, car, cdr;
-  printf("evalling index %u\n", index);
-  dump_value(index, 0); printf("\nresult:\n");
   switch(TYPE(index)) {
     case T_EMPTY:
     case T_INT32: 
@@ -245,10 +243,9 @@ int main(int argc, char **argv) {
     if (fgets(buf, 512, stdin) == 0) die("fgets() failed");
     char *str = buf;
     uint32_t index;
-    int value = read_value(&str, &index, 0);
-    if (value) { 
-      printf("read value: %u\n", value); dump_value(value, 0); printf("\n");
-      uint32_t res = eval(value);
+    int can_read = read_value(&str, &index, 0);
+    if (can_read) { 
+      uint32_t res = eval(index);
       if (res) {
         dump_value(res, 0); printf("\n");
       } else printf("eval failed.");
