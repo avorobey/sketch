@@ -242,7 +242,7 @@ uint32_t eval(uint32_t index) {
         return val;
       }
 
-      break;
+      return 0;
     default:
       return 0;
   }
@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
       uint32_t res = eval(index);
       if (res) {
         dump_value(res, 0); printf("\n");
-      } else printf("eval failed.");
+      } else printf("eval failed.\n");
     }
     else printf("failed reading at: %s\n", str);
   }
