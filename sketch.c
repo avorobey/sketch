@@ -50,6 +50,8 @@ uint32_t next_cell = 1;
 #define CAR(i) (cells[i+1] >> 32)
 #define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
+#define LIST_LIKE(i) (TYPE(i) == T_PAIR || TYPE(i) == T_EMPTY)
+
 uint32_t make_pair(uint32_t first, uint32_t second) {
   CHECK_CELLS(2);
   uint32_t index = next_cell;
@@ -75,6 +77,21 @@ uint32_t make_list(uint32_t *values, uint32_t count) {
     current--;
   }
   return pair;
+}
+
+/* checks that index is a proper ()-terminated list with 
+   at least count elements. if strict is true, must be exactly
+   count elements. count==0, strict==0 allows any list.
+   () itself is a list. */
+int check_list(uint32_t index, int count, int strict) {
+  while(TYPE(index) != T_EMPTY) {
+    if (TYPE(index) != T_PAIR) return 0;
+    if (strict && count <= 0) return 0;
+    index = CDR(index);
+    if (count > 0) --count;
+  }
+  if (count > 0) return 0;
+  else return 1;
 }
 
 #define SYMBOL_NAME(i) (char *)(cells+i+1)
@@ -312,7 +329,7 @@ int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
     if (args[count] == 0) return 0;
     count++;
     list = CDR(list);
-    if (TYPE(list) != T_PAIR && TYPE(list) != T_EMPTY)
+    if (!LIST_LIKE(list))
       die("badly formed argument list");
   }
   if (count >= MAX_ARGS) die("more than MAX_ARGS arguments");
@@ -321,8 +338,8 @@ int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
 }
 
 uint32_t eval(uint32_t index) {
-  uint32_t sym, val, car, cdr;
-  uint32_t args[MAX_ARGS];
+  uint32_t sym, val, func, args;
+  uint32_t arg_array[MAX_ARGS];
   switch(TYPE(index)) {
     case T_EMPTY:
     case T_INT32:
@@ -334,42 +351,46 @@ uint32_t eval(uint32_t index) {
       if (val == 0) die("undefined symbol");
       return val;
     case T_PAIR:
-      car = CAR(index);
-      cdr = CDR(index);
-      if (TYPE(car) != T_SYM) die("car of eval'd pair is not a symbol");
-      if (TYPE(cdr) != T_PAIR) die("cdr of eval'd pair is not a pair");
+      func = CAR(index);
+      args = CDR(index);
+      if (!LIST_LIKE(args)) die("args to eval aren't a list");
 
-      int is_define = strncmp(SYMBOL_NAME(car), "define", 6) == 0;
-      int is_set = strncmp(SYMBOL_NAME(car), "set!", 4) == 0;
-      if (is_define || is_set) {
-        /* the only allowed syntax here is ([define/set!] symbol value) */
-        sym = CAR(cdr);
-        if (TYPE(sym) != T_SYM) die ("define/set! followed by non-symbol");
-        if (TYPE(CDR(cdr)) != T_PAIR) die ("define/set! symbol . smth");
-        val = CAR(CDR(cdr));
-        if (TYPE(CDR(CDR(cdr))) != T_EMPTY) die ("define/set! too many args");
-        if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0)
-          die("set! on an undefined symbol");
-        set_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym), val);
-        return val; /* TODO: actually undefined value */
+      /* special-case special forms here. Don't try to eval 'func'
+         until we have special forms as proper symbols. */
+      if (TYPE(func) == T_SYM) {
+        char *func_name = SYMBOL_NAME(func);
+   
+        int is_define = strncmp(func_name, "define", 6) == 0;
+        int is_set = strncmp(func_name, "set!", 4) == 0;
+        if (is_define || is_set) {
+          /* the only allowed syntax here is ([define/set!] symbol value) */
+          if (!check_list(args, 2, 1)) die("bad define/set! syntax");
+          sym = CAR(args);
+          val = CAR(CDR(args));
+          if (TYPE(sym) != T_SYM) die ("define/set! followed by non-symbol");
+          if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0)
+            die("set! on an undefined symbol");
+          set_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym), val);
+          return val; /* TODO: actually undefined value */
+        }
+
+        if (strncmp(func_name, "quote", 5) == 0) {
+          /* syntax is: (quote value) */
+          if (!check_list(args, 1, 1)) die ("bad quote syntax");
+          return CAR(args);
+        }
       }
 
-      if (strncmp(SYMBOL_NAME(car), "quote", 5) == 0) {
-        /* syntax is: (quote value) */
-        val = CAR(cdr);
-        if (TYPE(CDR(cdr)) != T_EMPTY) die ("bad quote syntax");
-        return val;
-      }
-
-      /* special forms end here. Now check if it's a function. */
-      val = get_symbol(SYMBOL_NAME(car), SYMBOL_LEN(car));
+      /* special forms end here. Now eval the first element and check
+         that it's a function. */
+      val = eval(func);
       if (val == 0) die("undefined symbol as func name");
       if (TYPE(val) != T_FUNC) die("first element in list not a function");
       if ((cells[val] & BLTIN_MASK) == 0) die("can only call builtins for now");
 
       uint32_t num_args;
-      if (!eval_args(cdr, args, &num_args)) return 0;
-      uint32_t list = make_list(args, num_args);
+      if (!eval_args(args, arg_array, &num_args)) return 0;
+      uint32_t list = make_list(arg_array, num_args);
       builtin_t func = (builtin_t)cells[val+1];
 
       /* well, there you go */
