@@ -368,6 +368,8 @@ uint32_t eval(uint32_t index) {
           if (!check_list(args, 2, 1)) die("bad define/set! syntax");
           sym = CAR(args);
           val = CAR(CDR(args));
+          val = eval(val);
+          if (val == 0) die("couldn't eval the value in define/set!");
           if (TYPE(sym) != T_SYM) die ("define/set! followed by non-symbol");
           if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0)
             die("set! on an undefined symbol");
