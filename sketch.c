@@ -362,7 +362,7 @@ uint32_t eval(uint32_t index) {
       val = get_symbol(SYMBOL_NAME(car), SYMBOL_LEN(car));
       if (val == 0) die("undefined symbol as func name");
       if (TYPE(val) != T_FUNC) die("first element in list not a function");
-      if (cells[val] & BLTIN_MASK == 0) die("can only call builtins for now");
+      if ((cells[val] & BLTIN_MASK) == 0) die("can only call builtins for now");
 
       uint32_t num_args;
       if (!eval_args(cdr, args, &num_args)) return 0;
