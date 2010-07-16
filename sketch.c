@@ -80,7 +80,7 @@ uint32_t make_list(uint32_t *values, uint32_t count) {
 /* helper func to store a string into cells */
 uint32_t pack_string(char *str, char *end, int type) {
   uint32_t len = (end-str+7)/8;
-  CHECK_CELLS(len);
+  CHECK_CELLS(len+1);
   uint32_t index = next_cell;
   uint64_t value = type | (uint64_t)len << 16 | (uint64_t)(end-str) << 32;
   cells[next_cell++] = value;
