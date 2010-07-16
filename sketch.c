@@ -381,7 +381,10 @@ int main(int argc, char **argv) {
   register_builtins();
   while(1) {
     printf("%d cells> ", next_cell);
-    if (fgets(buf, 512, stdin) == 0) die("fgets() failed");
+    if (fgets(buf, 512, stdin) == 0) { 
+      if (feof(stdin)) return 0;
+      else die("fgets() failed");
+    }
     char *str = buf;
     uint32_t index;
     int can_read = read_value(&str, &index, 0);
