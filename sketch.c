@@ -133,12 +133,6 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     if (!res) return 0;
 
     SKIP_WS(str);
-    if (*str == ')' && !implicit_paren) { /* just one value in the list */
-      *pstr = str+1;
-      *pindex = index1;
-      return 1;
-    }
-
     int dot_pair = 0;
     if (*str == '.' && isspace(*(str+1))) {
       dot_pair = 1;
