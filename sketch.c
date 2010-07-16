@@ -337,6 +337,9 @@ int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
   return 1;
 }
 
+/* we count on the compiler to precompute constant strlens */
+#define IS_SYMBOL(index, name) (SYMBOL_LEN(index) == strlen(name) && \
+                                strcmp(SYMBOL_NAME(index), name) == 0)
 uint32_t eval(uint32_t index) {
   uint32_t sym, val, func, args;
   uint32_t arg_array[MAX_ARGS];
@@ -358,10 +361,8 @@ uint32_t eval(uint32_t index) {
       /* special-case special forms here. Don't try to eval 'func'
          until we have special forms as proper symbols. */
       if (TYPE(func) == T_SYM) {
-        char *func_name = SYMBOL_NAME(func);
-   
-        int is_define = strncmp(func_name, "define", 6) == 0;
-        int is_set = strncmp(func_name, "set!", 4) == 0;
+        int is_define = IS_SYMBOL(func, "define");
+        int is_set = IS_SYMBOL(func, "set!");
         if (is_define || is_set) {
           /* the only allowed syntax here is ([define/set!] symbol value) */
           if (!check_list(args, 2, 1)) die("bad define/set! syntax");
@@ -374,7 +375,7 @@ uint32_t eval(uint32_t index) {
           return val; /* TODO: actually undefined value */
         }
 
-        if (strncmp(func_name, "quote", 5) == 0) {
+        if (IS_SYMBOL(func, "quote")) {
           /* syntax is: (quote value) */
           if (!check_list(args, 1, 1)) die ("bad quote syntax");
           return CAR(args);
