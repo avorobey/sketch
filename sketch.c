@@ -296,6 +296,11 @@ uint32_t cdr(uint32_t index) {
   return CDR(CAR(index));
 }
 
+uint32_t list(uint32_t args) {
+  /* easiest builtin ever. */
+  return args;
+}
+
 uint32_t plus(uint32_t index) {
   int32_t accum = 0;
   uint32_t val;
@@ -317,6 +322,7 @@ void register_builtins(void) {
   register_builtin("car", car);
   register_builtin("cdr", cdr);
   register_builtin("+", plus);
+  register_builtin("list", list);
 }
 
 uint32_t eval(uint32_t index);
