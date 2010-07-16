@@ -302,8 +302,8 @@ void register_builtins(void) {
 uint32_t eval(uint32_t index);
 
 /* returns true/false on success/failure */
-int eval_args(uint32_t list, uint32_t *args, int *num_args) {
-  int count = 0;
+int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
+  uint32_t count = 0;
   while(count < MAX_ARGS && TYPE(list) != T_EMPTY) {
     args[count] = eval(CAR(list));
     if (args[count] == 0) return 0;
