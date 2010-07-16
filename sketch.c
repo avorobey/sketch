@@ -9,6 +9,9 @@ void die(char *str) {
   exit(1);
 }
 
+extern uint32_t get_symbol(const char *name, int len);
+extern void set_symbol(const char *name, int len, uint32_t val);
+
 /* max arguments in a function call */
 #define MAX_ARGS 256
 
