@@ -120,6 +120,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     if (!implicit_paren) ++str;
     SKIP_WS(str);
     if (*str == ')') {
+      str++;
       value = T_EMPTY;
       CHECK_CELLS(1);
       cells[next_cell++] = value;
