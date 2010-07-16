@@ -90,7 +90,7 @@ uint32_t pack_string(char *str, char *end, int type) {
 }
 
 int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
-  char *str = *pstr, *p;
+  char *str = *pstr;
   int num, count;
   uint64_t value;
   uint32_t index = next_cell;
