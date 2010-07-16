@@ -53,7 +53,7 @@ uint32_t make_pair(uint32_t first, uint32_t second) {
   cells[next_cell++] = T_PAIR;
   cells[next_cell++] = ((uint64_t)first << 32) | second;
   return index;
-} 
+}
 
 uint32_t make_list(uint32_t *values, uint32_t count) {
   /* Adds its own () at the end, no need to pass it. */
@@ -84,7 +84,7 @@ uint32_t pack_string(char *str, char *end, int type) {
   uint32_t index = next_cell;
   uint64_t value = type | (uint64_t)len << 16 | (uint64_t)(end-str) << 32;
   cells[next_cell++] = value;
-  strncpy(SYMBOL_NAME(index), str, end-str);  
+  strncpy(SYMBOL_NAME(index), str, end-str);
   next_cell+=len;
   return index;
 }
@@ -110,12 +110,12 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     uint32_t index1;
     int res = read_value(&str, &index1, 0);
     if (!res) return 0;
-    
+
     SKIP_WS(str);
     if (*str == ')' && !implicit_paren) { /* just one value in the list */
       *pstr = str+1;
       *pindex = index1;
-      return 1; 
+      return 1;
     }
 
     int dot_pair = 0;
@@ -132,7 +132,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
       if (*str != ')') return 0;
       str++;
     }
-    
+
     /* create and store the pair */
     value = T_PAIR;
     CHECK_CELLS(2);
@@ -142,7 +142,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     *pindex = index; *pstr = str;
     return 1;
   }
-    
+
   if (sscanf(str, "%d%n", &num, &count) >= 1) {
     str += count;
     value = T_INT32 | ((uint64_t)num << 32);
@@ -152,7 +152,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     *pstr = str;
     return 1;
   }
- 
+
   if (*str == '"') {
     char *end = ++str;
     while(*end && *end != '"') ++end;
@@ -207,7 +207,7 @@ void dump_value(uint32_t index, int implicit_paren) {
   uint32_t index1, index2;
   char *p;
   switch(TYPE(index)) {
-    case T_EMPTY: 
+    case T_EMPTY:
       printf("()"); break;
     case T_INT32:
       num = cells[index] >> 32;
@@ -232,7 +232,7 @@ void dump_value(uint32_t index, int implicit_paren) {
       dump_value(index1, 0);
       if (TYPE(index2) == T_PAIR) {
         putchar(' ');
-        dump_value(index2, 1); 
+        dump_value(index2, 1);
       } else {
         if (TYPE(index2) != T_EMPTY) {
           printf(" . ");
@@ -287,7 +287,7 @@ uint32_t plus(uint32_t index) {
     index = CDR(index);
   }
   CHECK_CELLS(1);
-  uint32_t unsigned_val = (uint32_t)accum;  
+  uint32_t unsigned_val = (uint32_t)accum;
   uint32_t res = next_cell;
   cells[next_cell++] = T_INT32 | (uint64_t)unsigned_val << 32;
   return res;
@@ -309,7 +309,7 @@ int eval_args(uint32_t list, uint32_t *args, int *num_args) {
     if (args[count] == 0) return 0;
     count++;
     list = CDR(list);
-    if (TYPE(list) != T_PAIR && TYPE(list) != T_EMPTY) 
+    if (TYPE(list) != T_PAIR && TYPE(list) != T_EMPTY)
       die("badly formed argument list");
   }
   if (count >= MAX_ARGS) die("more than MAX_ARGS arguments");
@@ -322,7 +322,7 @@ uint32_t eval(uint32_t index) {
   uint32_t args[MAX_ARGS];
   switch(TYPE(index)) {
     case T_EMPTY:
-    case T_INT32: 
+    case T_INT32:
     case T_BOOL:
     case T_STR:
       return index;
@@ -335,7 +335,7 @@ uint32_t eval(uint32_t index) {
       cdr = CDR(index);
       if (TYPE(car) != T_SYM) die("car of eval'd pair is not a symbol");
       if (TYPE(cdr) != T_PAIR) die("cdr of eval'd pair is not a pair");
-      
+
       int is_define = strncmp(SYMBOL_NAME(car), "define", 6) == 0;
       int is_set = strncmp(SYMBOL_NAME(car), "set!", 4) == 0;
       if (is_define || is_set) {
@@ -345,7 +345,7 @@ uint32_t eval(uint32_t index) {
         if (TYPE(CDR(cdr)) != T_PAIR) die ("define/set! symbol . smth");
         val = CAR(CDR(cdr));
         if (TYPE(CDR(CDR(cdr))) != T_EMPTY) die ("define/set! too many args");
-        if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0) 
+        if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0)
           die("set! on an undefined symbol");
         set_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym), val);
         return val; /* TODO: actually undefined value */
@@ -375,7 +375,7 @@ uint32_t eval(uint32_t index) {
       return 0;
   }
 }
-      
+
 int main(int argc, char **argv) {
   char buf[512];
   register_builtins();
@@ -385,7 +385,7 @@ int main(int argc, char **argv) {
     char *str = buf;
     uint32_t index;
     int can_read = read_value(&str, &index, 0);
-    if (can_read) { 
+    if (can_read) {
       uint32_t res = eval(index);
       if (res) {
         dump_value(res, 0); printf("\n");
