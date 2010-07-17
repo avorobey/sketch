@@ -11,14 +11,23 @@ void die(char *str) {
 
 extern uint32_t get_symbol(const char *name, int len);
 extern void set_symbol(const char *name, int len, uint32_t val);
+int read_value(char **pstr, uint32_t *pindex, int implicit_paren);
 
 /* max arguments in a function call */
 #define MAX_ARGS 256
 
 #define MAX_CELLS 1000000
 uint64_t cells[MAX_CELLS];
-/* start from 1, as index 0 is reserved for errors or invalid values */
-uint32_t next_cell = 1;
+
+/* special index values */
+#define C_ERROR 0 
+#define C_UNDEFINED 1
+#define C_EMPTY 2
+#define C_FALSE 3
+#define C_TRUE 4
+
+/* start after all these special values */
+uint32_t next_cell = 5;
 
 #define CHECK_CELLS(i) do { if (next_cell + i >= MAX_CELLS) \
   die("out of cells"); } while(0)
@@ -31,11 +40,16 @@ uint32_t next_cell = 1;
 #define T_PAIR   2  /* pair, uses next cell */
 #define T_STR    3  /* string */
 #define T_SYM    4  /* symbol */
-#define T_EMPTY  5  /* empty list, a special value */
-#define T_BOOL   6  /* boolean */
-#define T_FUNC   7  /* function, a.k.a. closure */
+#define T_RESV   5  /* special value: bool or () */
+#define T_FUNC   6  /* function, a.k.a. closure */
+#define T_VECT   7  /* vector */
+#define T_CHAR   8  /* character */
 
 #define BLTIN_MASK 16
+
+void init_cells(void) {
+  cells[C_EMPTY] = cells[C_FALSE] = cells[C_TRUE] = T_RESV;
+}
 
 #define SKIP_WS(str) do { while(isspace(*str)) ++str; } while(0)
 
@@ -50,7 +64,7 @@ uint32_t next_cell = 1;
 #define CAR(i) (cells[i+1] >> 32)
 #define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
-#define LIST_LIKE(i) (TYPE(i) == T_PAIR || TYPE(i) == T_EMPTY)
+#define LIST_LIKE(i) (TYPE(i) == T_PAIR || i == C_EMPTY)
 
 uint32_t make_pair(uint32_t first, uint32_t second) {
   CHECK_CELLS(2);
@@ -65,12 +79,7 @@ uint32_t make_list(uint32_t *values, uint32_t count) {
   if (count < 1) die("bad call to make_list");
   uint32_t current = count-1;
 
-  /* TODO: should have a handy universal empty list value */
-  CHECK_CELLS(1);
-  uint32_t empty = next_cell;
-  cells[next_cell++] = T_EMPTY;
-
-  uint32_t pair = empty; /* () at first; then pairs in the loop */
+  uint32_t pair = C_EMPTY; /* () at first; then pairs in the loop */
   while(1) {
     pair = make_pair(values[current], pair);
     if (current == 0) break;
@@ -84,7 +93,7 @@ uint32_t make_list(uint32_t *values, uint32_t count) {
    count elements. count==0, strict==0 allows any list.
    () itself is a list. */
 int check_list(uint32_t index, int count, int strict) {
-  while(TYPE(index) != T_EMPTY) {
+  while(index != C_EMPTY) {
     if (TYPE(index) != T_PAIR) return 0;
     if (strict && count <= 0) return 0;
     index = CDR(index);
@@ -97,6 +106,9 @@ int check_list(uint32_t index, int count, int strict) {
 #define SYMBOL_NAME(i) (char *)(cells+i+1)
 #define SYMBOL_LEN(i) (cells[i] >> 32)
 
+#define VECTOR_START(i) (uint32_t *)(cells+i+1)
+#define VECTOR_LEN(i) (cells[i] >> 32)
+
 /* helper func to store a string into cells */
 uint32_t pack_string(char *str, char *end, int type) {
   uint32_t len = (end-str+7)/8;
@@ -107,6 +119,49 @@ uint32_t pack_string(char *str, char *end, int type) {
   strncpy(SYMBOL_NAME(index), str, end-str);
   next_cell+=len;
   return index;
+}
+
+/* helper func to read a #(...) literal vector */
+int read_vector(char **pstr, uint32_t *pindex) {
+  uint32_t initial_indices[2];
+  int max_index = 2, cur_index = 0;
+  uint32_t *indices = initial_indices;
+  int malloced = 0;
+  char *str = *pstr;
+  while(1) {
+    SKIP_WS(str);
+    if (*str == ')') break;
+    int res = read_value(&str, &indices[cur_index], 0);
+    if (res == 0) { 
+      if (malloced) free(indices);
+      return 0;
+    }
+    cur_index++;
+    if (cur_index >= max_index) {  /* need to grow */
+      max_index *= 2;
+      indices = malloced ? realloc(indices, max_index*sizeof(uint32_t))
+                         : malloc(max_index*sizeof(uint32_t));
+      if (indices == 0) die("couldn't alloc memory for a vector");
+      if (!malloced) {
+        memcpy(indices, initial_indices, 2*sizeof(uint32_t));
+        malloced = 1;
+      }
+    }
+  }
+  /* we've seen ')' and all is good. store and cleanup */
+  str++; /* one past the ')' */
+
+  uint32_t len = (cur_index+1)/2;  /* num of extra cells required */
+  CHECK_CELLS(1+len);
+  uint32_t index = next_cell;
+  uint64_t value = T_VECT | (uint64_t)len << 16 | (uint64_t)(cur_index) << 32;
+  cells[next_cell++] = value;
+  memcpy(VECTOR_START(index), indices, cur_index*sizeof(uint32_t));
+  if(malloced) free(indices);
+  next_cell+=len;
+  *pindex = index;
+  *pstr = str;
+  return 1;
 }
 
 int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
@@ -121,10 +176,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     SKIP_WS(str);
     if (*str == ')') {
       str++;
-      value = T_EMPTY;
-      CHECK_CELLS(1);
-      cells[next_cell++] = value;
-      *pindex = index;
+      *pindex = C_EMPTY;
       *pstr = str;
       return 1;
     }
@@ -158,6 +210,34 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     return 1;
   }
 
+  if (*str == '#' && *(str+1) == '(') {  /* literal vector */
+    str+=2;
+    int res = read_vector(&str, &index);
+    if (res == 0) return 0;
+    *pindex = index; *pstr = str;
+    return 1;
+  }
+
+  if (*str == '#' && *(str+1) == '\\') {  /* character */
+    str+=2;
+    if (*str == '\0') return 0;
+    unsigned char c;
+    if (strncmp(str, "space", 5) == 0) {
+      str+=5; c = ' ';
+    } else if (strncmp(str, "newline", 7) == 0) {
+      str+=7; c = '\n';
+    } else {
+      c = *str; str+=1;
+    }
+    index = next_cell;
+    uint64_t value = T_CHAR | (uint64_t)c << 32;
+    cells[next_cell++] = value;
+    *pindex = index;
+    *pstr = str;
+    return 1;
+  }
+    
+    
   if (sscanf(str, "%d%n", &num, &count) >= 1) {
     str += count;
     value = T_INT32 | ((uint64_t)num << 32);
@@ -222,8 +302,12 @@ void dump_value(uint32_t index, int implicit_paren) {
   uint32_t index1, index2;
   char *p;
   switch(TYPE(index)) {
-    case T_EMPTY:
-      printf("()"); break;
+    case T_RESV:
+      if (index == C_EMPTY) printf("()");
+      else if (index == C_FALSE) printf("#f");
+      else if (index == C_TRUE) printf("#t");
+      else die("unknown RESV value");
+      break;
     case T_INT32:
       num = cells[index] >> 32;
       printf("%d", num);
@@ -249,7 +333,7 @@ void dump_value(uint32_t index, int implicit_paren) {
         putchar(' ');
         dump_value(index2, 1);
       } else {
-        if (TYPE(index2) != T_EMPTY) {
+        if (index2 != C_EMPTY) {
           printf(" . ");
           dump_value(index2, 0);
         }
@@ -258,6 +342,23 @@ void dump_value(uint32_t index, int implicit_paren) {
       break;
     case T_FUNC:
       printf("*func*");
+      break;
+    case T_VECT:
+      length = VECTOR_LEN(index);
+      uint32_t *start = VECTOR_START(index);
+      printf("#(");
+      for (i = 0; i < length; i++) {
+        dump_value(start[i], 0);
+        if (i != length-1) putchar(' ');
+      }
+      putchar(')');
+      break;
+    case T_CHAR:
+      printf("#\\");
+      unsigned char c = (unsigned char)(cells[index] >> 32);
+      if (c == ' ') printf("space");
+      else if (c == '\n') printf("newline");
+      else putchar(c);
       break;
     default:
       break;
@@ -281,13 +382,13 @@ void register_builtin(char *name, builtin_t func) {
 
 uint32_t car(uint32_t index) {
   /* check that we have just one argument (the list is of size 1) */
-  if (TYPE(index) != T_PAIR || TYPE(CDR(index)) != T_EMPTY) return 0;
+  if (TYPE(index) != T_PAIR || CDR(index) != C_EMPTY) return 0;
 
   /* pass to this argument - first CAR - and return its first element */
   return CAR(CAR(index));
 }
 uint32_t cdr(uint32_t index) {
-  if (TYPE(index) != T_PAIR || TYPE(CDR(index)) != T_EMPTY) return 0;
+  if (TYPE(index) != T_PAIR || CDR(index) != C_EMPTY) return 0;
   return CDR(CAR(index));
 }
 
@@ -299,7 +400,7 @@ uint32_t list(uint32_t args) {
 uint32_t plus(uint32_t index) {
   int32_t accum = 0;
   uint32_t val;
-  while(TYPE(index) != T_EMPTY) {
+  while(index != C_EMPTY) {
     val = CAR(index);
     if (TYPE(val) != T_INT32) return 0;
     int32_t signed_val = (int32_t)(cells[val] >> 32);
@@ -325,7 +426,7 @@ uint32_t eval(uint32_t index);
 /* returns true/false on success/failure */
 int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
   uint32_t count = 0;
-  while(count < MAX_ARGS && TYPE(list) != T_EMPTY) {
+  while(count < MAX_ARGS && list != C_EMPTY) {
     args[count] = eval(CAR(list));
     if (args[count] == 0) return 0;
     count++;
@@ -345,10 +446,10 @@ uint32_t eval(uint32_t index) {
   uint32_t sym, val, func, args;
   uint32_t arg_array[MAX_ARGS];
   switch(TYPE(index)) {
-    case T_EMPTY:
     case T_INT32:
-    case T_BOOL:
+    case T_RESV:
     case T_STR:
+    case T_CHAR:
       return index;
     case T_SYM:
       val = get_symbol(SYMBOL_NAME(index), SYMBOL_LEN(index));
@@ -406,6 +507,7 @@ uint32_t eval(uint32_t index) {
 
 int main(int argc, char **argv) {
   char buf[512];
+  init_cells();
   register_builtins();
   while(1) {
     printf("%d cells> ", next_cell);
