@@ -30,7 +30,7 @@ void register_builtin(char *name, builtin_t func) {
 
 #define TWO_ARGS(name1, name2) uint32_t name1, name2; \
   if (!check_list(args, 2, 1)) return 0; name1 = CAR(args); \
-  name2 = CAR(CAR(args));
+  name2 = CAR(CDR(args));
 
 /* Types. */
 
@@ -127,11 +127,7 @@ uint32_t times(uint32_t args) {
 }
 
 void register_builtins(void) {
-  register_builtin("car", car);
-  register_builtin("cdr", cdr);
-  register_builtin("+", plus);
-  register_builtin("*", times);
-  register_builtin("list", list);
+  /* types */
   register_builtin("procedure?", procedure_p);
   register_builtin("vector?", vector_p);
   register_builtin("string?", string_p);
@@ -142,5 +138,18 @@ void register_builtins(void) {
   register_builtin("boolean?", boolean_p);
   register_builtin("null?", null_p);
   register_builtin("list?", list_p);
+
+  /* booleans */
+  register_builtin("not", list_p);
+
+  /* pairs and lists */
+  register_builtin("list", list);
+  register_builtin("cons", cons);
+  register_builtin("car", car);
+  register_builtin("cdr", cdr);
+
+  /* numbers */
+  register_builtin("+", plus);
+  register_builtin("*", times);
 }
 
