@@ -68,8 +68,9 @@ int check_list(uint32_t index, int count, int strict) {
   else return 1;
 }
 
-/* helper func to store a string into cells */
-uint32_t pack_string(char *str, char *end, int type) {
+/* helper functions to store stuff into cells */
+
+uint32_t store_string(char *str, char *end, int type) {
   uint32_t len = (end-str+7)/8;
   CHECK_CELLS(len+1);
   uint32_t index = next_cell;
@@ -77,6 +78,15 @@ uint32_t pack_string(char *str, char *end, int type) {
   cells[next_cell++] = value;
   strncpy(SYMBOL_NAME(index), str, end-str);
   next_cell+=len;
+  return index;
+}
+
+uint32_t store_pair(uint32_t first, uint32_t second) {
+  uint64_t  value = T_PAIR;
+  CHECK_CELLS(2);
+  uint32_t  index = next_cell;
+  cells[next_cell++] = value;
+  cells[next_cell++] = ((uint64_t)first << 32) | second;
   return index;
 }
 
@@ -160,12 +170,8 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     }
 
     /* create and store the pair */
-    value = T_PAIR;
-    CHECK_CELLS(2);
-    index = next_cell;
-    cells[next_cell++] = value;
-    cells[next_cell++] = ((uint64_t)index1 << 32) | index2;
-    *pindex = index; *pstr = str;
+    *pindex = store_pair(index1, index2); 
+    *pstr = str;
     return 1;
   }
 
@@ -218,7 +224,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     char *end = ++str;
     while(*end && *end != '"') ++end;
     if (*end == '\0') return 0;
-    *pindex = pack_string(str, end, T_STR);
+    *pindex = store_string(str, end, T_STR);
     *pstr = end+1;
     return 1;
   }
@@ -229,7 +235,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     int res = read_value(&str, &indices[1], 0);
     if (!res) return 0;
     char *quote = "quote";
-    indices[0] = pack_string(quote, quote+5, T_SYM);
+    indices[0] = store_string(quote, quote+5, T_SYM);
     *pindex = make_list(indices, 2);
     *pstr = str;
     return 1;
@@ -255,7 +261,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
   }
 
   if (symbol) {
-    *pindex = pack_string(str, end, T_SYM);
+    *pindex = store_string(str, end, T_SYM);
     *pstr = end;
     return 1;
   }

@@ -63,4 +63,4 @@ void register_builtins(void);
 int read_value(char **pstr, uint32_t *pindex, int implicit_paren);
 void die(char *msg);
 int check_list(uint32_t index, int count, int strict);
-
+uint32_t store_pair(uint32_t first, uint32_t second);

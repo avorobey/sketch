@@ -84,6 +84,20 @@ uint32_t list(uint32_t args) {
   /* easiest builtin ever. */
   return args;
 }
+uint32_t cons(uint32_t args) {
+  TWO_ARGS(arg1, arg2);
+  return store_pair(arg1, arg2);
+}
+
+/* Booleans. */
+
+uint32_t not(uint32_t args) {
+  ONE_ARG(arg);
+  if (arg == C_FALSE) return C_TRUE;
+  else return C_FALSE;
+}
+
+/* Numbers. */
 
 /* does either + or *, since the code's so similar */
 uint32_t plus_times(uint32_t args, int is_plus) {
