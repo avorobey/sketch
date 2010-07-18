@@ -1,0 +1,72 @@
+#include <stdint.h>
+#include <string.h>
+
+#include "common.h"
+
+/* Builtin functions. The code in this file reuses
+   lots of internal structure in sketch.c deliberately exposed
+   via common.h. */
+
+void register_builtin(char *name, builtin_t func) {
+  CHECK_CELLS(2);
+  uint64_t value = T_FUNC | BLTIN_MASK;
+  uint32_t index = next_cell;
+  cells[next_cell++] = value;
+  cells[next_cell++] = (uint64_t)(uintptr_t)func;
+  set_symbol(name, strlen(name), index);
+}
+
+/* Every builtin gets an index to a list of all its arguments. If it
+   receives just one, it's still a list of one, e.g. ((1 2)) for (car '(1 2)).
+   Return value is the index of the result, or 0 if an error occurs.
+   Because the list of arguments is built up as they're evaluated, builtins
+   can assume it's a well-formed list. */
+
+/* some handy defines for functions expecting one or two arguments and
+   wishing to fail if the number of arguments doesn't match. */
+
+#define ONE_ARG(name) uint32_t name; if (!check_list(args, 1, 1)) \
+  return 0; name = CAR(args);
+
+#define TWO_ARGS(name1, name2) uint32_t name1, name2; \
+  if (!check_list(args, 2, 1)) return 0; name1 = CAR(args); \
+  name2 = CAR(CAR(args));
+
+uint32_t car(uint32_t args) {
+  ONE_ARG(arg);
+  return CAR(arg);
+}
+uint32_t cdr(uint32_t args) {
+  ONE_ARG(arg);
+  return CDR(arg);
+}
+uint32_t list(uint32_t args) {
+  /* easiest builtin ever. */
+  return args;
+}
+
+
+uint32_t plus(uint32_t index) {
+  int32_t accum = 0;
+  uint32_t val;
+  while(index != C_EMPTY) {
+    val = CAR(index);
+    if (TYPE(val) != T_INT32) return 0;
+    int32_t signed_val = (int32_t)(cells[val] >> 32);
+    accum += signed_val;
+    index = CDR(index);
+  }
+  CHECK_CELLS(1);
+  uint32_t unsigned_val = (uint32_t)accum;
+  uint32_t res = next_cell;
+  cells[next_cell++] = T_INT32 | (uint64_t)unsigned_val << 32;
+  return res;
+}
+
+void register_builtins(void) {
+  register_builtin("car", car);
+  register_builtin("cdr", cdr);
+  register_builtin("+", plus);
+  register_builtin("list", list);
+}
+
