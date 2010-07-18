@@ -69,6 +69,62 @@ uint32_t list_p(uint32_t args) {
   else return C_FALSE;
 }
 
+/* Equality */
+
+uint32_t eqv(uint32_t args) {
+  uint32_t len1, len2;
+  TWO_ARGS(arg1, arg2);
+  if (arg1 == arg2) return C_TRUE;
+  if (TYPE(arg1) != TYPE(arg2)) return C_FALSE;
+  switch(TYPE(arg1)) {
+    case T_STR:
+    case T_PAIR:
+    case T_VECT:
+      /* these are equal only if they're identical */
+    case T_FUNC:
+      /* probably the right behavior. TODO: reevaluate when closures work. */
+    case T_RESV:
+      /* also equal by identity, because of how they're implemented  */
+      return C_FALSE; /* the case when arg1==arg2 is already handled above */
+      break;
+    case T_CHAR:
+      if (CHAR_VALUE(arg1) == CHAR_VALUE(arg2)) return C_TRUE;
+      else return C_FALSE;
+      break;
+    case T_INT32:
+      if (INT32_VALUE(arg1) == INT32_VALUE(arg2)) return C_TRUE;
+      else return C_FALSE;
+      break;
+    case T_SYM:
+      len1 = SYMBOL_LEN(arg1); len2 = SYMBOL_LEN(arg2);
+      if (len1 != len2) return C_FALSE;
+      if (strncmp(SYMBOL_NAME(arg1), SYMBOL_NAME(arg2), len1) == 0) 
+        return C_TRUE;
+      return C_FALSE;
+    default:
+      break;
+  }
+  return C_FALSE;
+}
+     
+uint32_t equal(uint32_t args) {
+  TWO_ARGS(arg1, arg2);
+  if (arg1 == arg2) return C_TRUE;
+  if (TYPE(arg1) != TYPE(arg2)) return C_FALSE;
+  switch(TYPE(arg1)) {
+    case T_STR:
+      break;
+    case T_PAIR:
+      break;
+    case T_VECT:
+      break;
+    default:
+      return eqv(args);
+      break;
+  }
+  return C_FALSE;
+}
+
 
 /* Pairs and lists. */
 
@@ -88,6 +144,21 @@ uint32_t cons(uint32_t args) {
   TWO_ARGS(arg1, arg2);
   return store_pair(arg1, arg2);
 }
+uint32_t set_car(uint32_t args) {
+  TWO_ARGS(arg1, arg2);
+  if (TYPE(arg1) != T_PAIR) return 0;
+  uint64_t val = cells[arg1+1];
+  cells[arg1+1] = (val & 0xFFFFFFFF) | (uint64_t)arg2 << 32;
+  return 1;
+}
+uint32_t set_cdr(uint32_t args) {
+  TWO_ARGS(arg1, arg2);
+  if (TYPE(arg1) != T_PAIR) return 0;
+  uint64_t val = cells[arg1+1];
+  cells[arg1+1] = (val & 0xFFFFFFFF00000000L) | (uint64_t)arg2;
+  return 1;
+}
+
 
 /* Booleans. */
 
@@ -139,6 +210,13 @@ void register_builtins(void) {
   register_builtin("null?", null_p);
   register_builtin("list?", list_p);
 
+  /* equality */
+  register_builtin("eqv?", eqv);
+
+  /* TODO: when symbols have unique identity per name ("interned"), it may
+     make sense to have a separate faster eq? */
+  register_builtin("eq?", eqv);
+
   /* booleans */
   register_builtin("not", list_p);
 
@@ -147,6 +225,8 @@ void register_builtins(void) {
   register_builtin("cons", cons);
   register_builtin("car", car);
   register_builtin("cdr", cdr);
+  register_builtin("set-car!", set_car);
+  register_builtin("set-cdr!", set_cdr);
 
   /* numbers */
   register_builtin("+", plus);

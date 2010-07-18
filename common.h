@@ -11,7 +11,7 @@ extern uint32_t next_cell;
 
 /* special index values, pre-filled and always occupied */
 #define C_ERROR 0 
-#define C_UNDEFINED 1
+#define C_UNSPEC 1
 #define C_EMPTY 2
 #define C_FALSE 3
 #define C_TRUE 4
@@ -38,7 +38,7 @@ extern uint32_t next_cell;
 /* true for builtin, as opposed to lambda-defined, functions */
 #define BLTIN_MASK 16
 
-/* the next few defines depend on how pairs, symbols, vectors are laid out */
+/* the next few defines depend on how the specific types are laid out */
 #define CAR(i) (cells[i+1] >> 32)
 #define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
@@ -47,6 +47,9 @@ extern uint32_t next_cell;
 
 #define VECTOR_START(i) (uint32_t *)(cells+i+1)
 #define VECTOR_LEN(i) (cells[i] >> 32)
+
+#define CHAR_VALUE(i) (unsigned char)(cells[i] >> 32)
+#define INT32_VALUE(i) (int32_t)(cells[i] >> 32)
 
 #define LIST_LIKE(i) (TYPE(i) == T_PAIR || i == C_EMPTY)
 

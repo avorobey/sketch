@@ -17,7 +17,7 @@ uint64_t cells[MAX_CELLS];
 uint32_t next_cell = C_STARTFROM;
 
 void init_cells(void) {
-  cells[C_EMPTY] = cells[C_FALSE] = cells[C_TRUE] = T_RESV;
+  cells[C_UNSPEC] = cells[C_EMPTY] = cells[C_FALSE] = cells[C_TRUE] = T_RESV;
 }
 
 #define SKIP_WS(str) do { while(isspace(*str)) ++str; } while(0)
@@ -270,18 +270,20 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
 }
 
 void dump_value(uint32_t index, int implicit_paren) {
-  uint32_t num, length, i;
+  uint32_t length, i;
   uint32_t index1, index2;
+  int32_t num;
   char *p;
   switch(TYPE(index)) {
     case T_RESV:
       if (index == C_EMPTY) printf("()");
       else if (index == C_FALSE) printf("#f");
       else if (index == C_TRUE) printf("#t");
+      else if (index == C_UNSPEC) ;  /* print nothing */
       else die("unknown RESV value");
       break;
     case T_INT32:
-      num = cells[index] >> 32;
+      num = INT32_VALUE(index);
       printf("%d", num);
       break;
     case T_STR:
@@ -327,7 +329,7 @@ void dump_value(uint32_t index, int implicit_paren) {
       break;
     case T_CHAR:
       printf("#\\");
-      unsigned char c = (unsigned char)(cells[index] >> 32);
+      unsigned char c = CHAR_VALUE(index);
       if (c == ' ') printf("space");
       else if (c == '\n') printf("newline");
       else putchar(c);
