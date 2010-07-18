@@ -236,7 +236,14 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     *pstr = str;
     return 1;
   }
-    
+
+  if (*str == '#' && *(str+1) == 'f') {
+    *pstr = str+2; *pindex = C_FALSE; return 1;
+  }
+
+  if (*str == '#' && *(str+1) == 't') {
+    *pstr = str+2; *pindex = C_TRUE; return 1;
+  }
     
   if (sscanf(str, "%d%n", &num, &count) >= 1) {
     str += count;
