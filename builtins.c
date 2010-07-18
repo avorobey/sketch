@@ -32,6 +32,46 @@ void register_builtin(char *name, builtin_t func) {
   if (!check_list(args, 2, 1)) return 0; name1 = CAR(args); \
   name2 = CAR(CAR(args));
 
+/* Types. */
+
+#define GEN_TYPE_PREDICATE(func_name, type) \
+  uint32_t func_name(uint32_t args) { \
+    ONE_ARG(name); \
+    if (TYPE(name) == type) return C_TRUE; \
+    else return C_FALSE; \
+  }
+
+GEN_TYPE_PREDICATE(procedure_p, T_FUNC)
+GEN_TYPE_PREDICATE(vector_p, T_VECT)
+GEN_TYPE_PREDICATE(string_p, T_STR)
+GEN_TYPE_PREDICATE(symbol_p, T_SYM)
+GEN_TYPE_PREDICATE(char_p, T_CHAR)
+GEN_TYPE_PREDICATE(pair_p, T_PAIR)
+
+/* TODO: richer number types will change this */
+GEN_TYPE_PREDICATE(number_p, T_INT32)
+
+uint32_t boolean_p(uint32_t args) {
+  ONE_ARG(index);
+  if (index == C_TRUE || index == C_FALSE) return C_TRUE;
+  else return C_FALSE;
+}
+
+uint32_t null_p(uint32_t args) {
+  ONE_ARG(index);
+  if (index == C_EMPTY) return C_TRUE;
+  else return C_FALSE;
+}
+
+uint32_t list_p(uint32_t args) {
+  ONE_ARG(list);
+  if (check_list(list, 0, 0)) return C_TRUE;
+  else return C_FALSE;
+}
+
+
+/* Pairs and lists. */
+
 uint32_t car(uint32_t args) {
   ONE_ARG(arg);
   return CAR(arg);
@@ -68,5 +108,15 @@ void register_builtins(void) {
   register_builtin("cdr", cdr);
   register_builtin("+", plus);
   register_builtin("list", list);
+  register_builtin("procedure?", procedure_p);
+  register_builtin("vector?", vector_p);
+  register_builtin("string?", string_p);
+  register_builtin("symbol?", symbol_p);
+  register_builtin("char?", char_p);
+  register_builtin("pair?", pair_p);
+  register_builtin("number?", number_p);
+  register_builtin("boolean?", boolean_p);
+  register_builtin("null?", null_p);
+  register_builtin("list?", list_p);
 }
 
