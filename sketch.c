@@ -76,7 +76,7 @@ uint32_t store_string(char *str, char *end, int type) {
   uint32_t index = next_cell;
   uint64_t value = type | (uint64_t)len << 16 | (uint64_t)(end-str) << 32;
   cells[next_cell++] = value;
-  strncpy(SYMBOL_NAME(index), str, end-str);
+  strncpy(STR_START(index), str, end-str);
   next_cell+=len;
   return index;
 }
@@ -287,15 +287,15 @@ void dump_value(uint32_t index, int implicit_paren) {
       printf("%d", num);
       break;
     case T_STR:
-      length = SYMBOL_LEN(index);
-      p = SYMBOL_NAME(index);
+      length = STR_LEN(index);
+      p = STR_START(index);
       putchar('"');
       for (i = 0; i < length; i++) putchar(*p++);
       putchar('"');
       break;
     case T_SYM:
-      length = SYMBOL_LEN(index);
-      p = SYMBOL_NAME(index);
+      length = STR_LEN(index);
+      p = STR_START(index);
       for (i = 0; i < length; i++) putchar(*p++);
       break;
     case T_PAIR:
@@ -358,8 +358,8 @@ int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
 }
 
 /* we count on the compiler to precompute constant strlens */
-#define IS_SYMBOL(index, name) (SYMBOL_LEN(index) == strlen(name) && \
-                                strcmp(SYMBOL_NAME(index), name) == 0)
+#define IS_SYMBOL(index, name) (STR_LEN(index) == strlen(name) && \
+                                strcmp(STR_START(index), name) == 0)
 uint32_t eval(uint32_t index) {
   uint32_t sym, val, func, args;
   uint32_t arg_array[MAX_ARGS];
@@ -370,7 +370,7 @@ uint32_t eval(uint32_t index) {
     case T_CHAR:
       return index;
     case T_SYM:
-      val = get_symbol(SYMBOL_NAME(index), SYMBOL_LEN(index));
+      val = get_symbol(STR_START(index), STR_LEN(index));
       if (val == 0) die("undefined symbol");
       return val;
     case T_PAIR:
@@ -391,9 +391,9 @@ uint32_t eval(uint32_t index) {
           val = eval(val);
           if (val == 0) die("couldn't eval the value in define/set!");
           if (TYPE(sym) != T_SYM) die ("define/set! followed by non-symbol");
-          if (is_set && get_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym))==0)
+          if (is_set && get_symbol(STR_START(sym), STR_LEN(sym))==0)
             die("set! on an undefined symbol");
-          set_symbol(SYMBOL_NAME(sym), SYMBOL_LEN(sym), val);
+          set_symbol(STR_START(sym), STR_LEN(sym), val);
           return val; /* TODO: actually undefined value */
         }
 

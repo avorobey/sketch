@@ -42,8 +42,8 @@ extern uint32_t next_cell;
 #define CAR(i) (cells[i+1] >> 32)
 #define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
-#define SYMBOL_NAME(i) (char *)(cells+i+1)
-#define SYMBOL_LEN(i) (cells[i] >> 32)
+#define STR_START(i) (char *)(cells+i+1)
+#define STR_LEN(i) (cells[i] >> 32)
 
 #define VECTOR_START(i) (uint32_t *)(cells+i+1)
 #define VECTOR_LEN(i) (cells[i] >> 32)

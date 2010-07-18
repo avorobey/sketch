@@ -71,9 +71,9 @@ uint32_t list_p(uint32_t args) {
 
 /* Equality */
 
-uint32_t eqv(uint32_t args) {
+/* a helper function to make it easier to call this from other builtins */
+uint32_t eqv_pair(uint32_t arg1, uint32_t arg2) {
   uint32_t len1, len2;
-  TWO_ARGS(arg1, arg2);
   if (arg1 == arg2) return C_TRUE;
   if (TYPE(arg1) != TYPE(arg2)) return C_FALSE;
   switch(TYPE(arg1)) {
@@ -96,9 +96,9 @@ uint32_t eqv(uint32_t args) {
       else return C_FALSE;
       break;
     case T_SYM:
-      len1 = SYMBOL_LEN(arg1); len2 = SYMBOL_LEN(arg2);
+      len1 = STR_LEN(arg1); len2 = STR_LEN(arg2);
       if (len1 != len2) return C_FALSE;
-      if (strncmp(SYMBOL_NAME(arg1), SYMBOL_NAME(arg2), len1) == 0) 
+      if (strncmp(STR_START(arg1), STR_START(arg2), len1) == 0) 
         return C_TRUE;
       return C_FALSE;
     default:
@@ -106,25 +106,49 @@ uint32_t eqv(uint32_t args) {
   }
   return C_FALSE;
 }
-     
-uint32_t equal(uint32_t args) {
+
+uint32_t eqv(uint32_t args) {
   TWO_ARGS(arg1, arg2);
+  return eqv_pair(arg1, arg2);
+}
+     
+/* a helper function to make recursive calls easier */
+uint32_t equal_pair(uint32_t arg1, uint32_t arg2) {
+  uint32_t *p1, *p2, len;
   if (arg1 == arg2) return C_TRUE;
   if (TYPE(arg1) != TYPE(arg2)) return C_FALSE;
   switch(TYPE(arg1)) {
     case T_STR:
+      if (STR_LEN(arg1) != STR_LEN(arg2)) return C_FALSE;
+      if (strncmp(STR_START(arg1), STR_START(arg2), STR_LEN(arg1)) == 0)
+        return C_TRUE;
+      else return C_FALSE;
       break;
     case T_PAIR:
+      if (equal_pair(CAR(arg1), CAR(arg2)) == C_TRUE &&
+          equal_pair(CDR(arg1), CDR(arg2)) == C_TRUE)
+        return C_TRUE;
+      else return C_FALSE;
       break;
     case T_VECT:
+      if (VECTOR_LEN(arg1) != VECTOR_LEN(arg2)) return C_FALSE;
+      len = VECTOR_LEN(arg1); p1 = VECTOR_START(arg1); p2 = VECTOR_START(arg2);
+      for (uint32_t i = 0; i < len; i++) {
+        if (equal_pair(p1[i], p2[i]) == C_FALSE) return C_FALSE;
+      }
+      return C_TRUE;
       break;
     default:
-      return eqv(args);
+      return eqv_pair(arg1, arg2);
       break;
   }
   return C_FALSE;
 }
 
+uint32_t equal(uint32_t args) {
+  TWO_ARGS(arg1, arg2);
+  return equal_pair(arg1, arg2);
+}
 
 /* Pairs and lists. */
 
@@ -216,6 +240,8 @@ void register_builtins(void) {
   /* TODO: when symbols have unique identity per name ("interned"), it may
      make sense to have a separate faster eq? */
   register_builtin("eq?", eqv);
+
+  register_builtin("equal?", equal);
 
   /* booleans */
   register_builtin("not", list_p);
