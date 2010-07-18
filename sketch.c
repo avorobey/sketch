@@ -4,48 +4,17 @@
 #include <ctype.h>
 #include <string.h>
 
+#include "common.h"
+
 void die(char *str) {
   fprintf(stderr, "dying: %s\n", str);
   exit(1);
 }
 
-extern uint32_t get_symbol(const char *name, int len);
-extern void set_symbol(const char *name, int len, uint32_t val);
-int read_value(char **pstr, uint32_t *pindex, int implicit_paren);
-
-/* max arguments in a function call */
-#define MAX_ARGS 256
-
-#define MAX_CELLS 1000000
 uint64_t cells[MAX_CELLS];
 
-/* special index values */
-#define C_ERROR 0 
-#define C_UNDEFINED 1
-#define C_EMPTY 2
-#define C_FALSE 3
-#define C_TRUE 4
-
-/* start after all these special values */
-uint32_t next_cell = 5;
-
-#define CHECK_CELLS(i) do { if (next_cell + i >= MAX_CELLS) \
-  die("out of cells"); } while(0)
-
-// 4 lowest-order bits for the type
-#define TYPE_MASK 15
-#define TYPE(i) (cells[i] & TYPE_MASK)
-#define T_NONE   0  /* this cell is unused */
-#define T_INT32  1  /* immediate 32-bit value */
-#define T_PAIR   2  /* pair, uses next cell */
-#define T_STR    3  /* string */
-#define T_SYM    4  /* symbol */
-#define T_RESV   5  /* special value: bool or () */
-#define T_FUNC   6  /* function, a.k.a. closure */
-#define T_VECT   7  /* vector */
-#define T_CHAR   8  /* character */
-
-#define BLTIN_MASK 16
+/* start after all the special values */
+uint32_t next_cell = C_STARTFROM;
 
 void init_cells(void) {
   cells[C_EMPTY] = cells[C_FALSE] = cells[C_TRUE] = T_RESV;
@@ -61,10 +30,6 @@ void init_cells(void) {
 #define SUBSEQUENT(c) (INITIAL(c) || (c>='0' && c<='9') || c=='+' || \
                        c=='-' || c=='.' || c=='@')
 
-#define CAR(i) (cells[i+1] >> 32)
-#define CDR(i) (cells[i+1] & 0xFFFFFFFF)
-
-#define LIST_LIKE(i) (TYPE(i) == T_PAIR || i == C_EMPTY)
 
 uint32_t make_pair(uint32_t first, uint32_t second) {
   CHECK_CELLS(2);
@@ -102,12 +67,6 @@ int check_list(uint32_t index, int count, int strict) {
   if (count > 0) return 0;
   else return 1;
 }
-
-#define SYMBOL_NAME(i) (char *)(cells+i+1)
-#define SYMBOL_LEN(i) (cells[i] >> 32)
-
-#define VECTOR_START(i) (uint32_t *)(cells+i+1)
-#define VECTOR_LEN(i) (cells[i] >> 32)
 
 /* helper func to store a string into cells */
 uint32_t pack_string(char *str, char *end, int type) {
