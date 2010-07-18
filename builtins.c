@@ -85,16 +85,17 @@ uint32_t list(uint32_t args) {
   return args;
 }
 
-
-uint32_t plus(uint32_t index) {
-  int32_t accum = 0;
+/* does either + or *, since the code's so similar */
+uint32_t plus_times(uint32_t args, int is_plus) {
+  int32_t accum = is_plus ? 0 : 1;
   uint32_t val;
-  while(index != C_EMPTY) {
-    val = CAR(index);
+  while(args != C_EMPTY) {
+    val = CAR(args);
     if (TYPE(val) != T_INT32) return 0;
     int32_t signed_val = (int32_t)(cells[val] >> 32);
-    accum += signed_val;
-    index = CDR(index);
+    if (is_plus) accum += signed_val;
+    else accum *= signed_val;
+    args = CDR(args);
   }
   CHECK_CELLS(1);
   uint32_t unsigned_val = (uint32_t)accum;
@@ -103,10 +104,19 @@ uint32_t plus(uint32_t index) {
   return res;
 }
 
+uint32_t plus(uint32_t args) {
+  return plus_times(args, 1);
+}
+
+uint32_t times(uint32_t args) {
+  return plus_times(args, 0);
+}
+
 void register_builtins(void) {
   register_builtin("car", car);
   register_builtin("cdr", cdr);
   register_builtin("+", plus);
+  register_builtin("*", times);
   register_builtin("list", list);
   register_builtin("procedure?", procedure_p);
   register_builtin("vector?", vector_p);
