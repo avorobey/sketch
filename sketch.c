@@ -463,6 +463,8 @@ uint32_t eval(uint32_t index) {
       uint32_t num_args;
       if (!eval_args(args, arg_array, &num_args)) return 0;
       if (cells[val] & BLTIN_MASK) {   /* builtin function */
+         /* TODO: do we really need a list for builtin funcs? Reevaluate the
+            interface to them after lexical scoping & tail calls are done. */
          uint32_t list = make_list(arg_array, num_args);
          builtin_t func = (builtin_t)cells[val+1];
         /* well, there you go */
