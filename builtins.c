@@ -173,14 +173,14 @@ uint32_t set_car(uint32_t args) {
   if (TYPE(arg1) != T_PAIR) return 0;
   uint64_t val = cells[arg1+1];
   cells[arg1+1] = (val & 0xFFFFFFFF) | (uint64_t)arg2 << 32;
-  return 1;
+  return C_UNSPEC;
 }
 uint32_t set_cdr(uint32_t args) {
   TWO_ARGS(arg1, arg2);
   if (TYPE(arg1) != T_PAIR) return 0;
   uint64_t val = cells[arg1+1];
   cells[arg1+1] = (val & 0xFFFFFFFF00000000L) | (uint64_t)arg2;
-  return 1;
+  return C_UNSPEC;
 }
 
 
