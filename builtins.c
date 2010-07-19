@@ -182,6 +182,12 @@ uint32_t set_cdr(uint32_t args) {
   cells[arg1+1] = (val & 0xFFFFFFFF00000000L) | (uint64_t)arg2;
   return C_UNSPEC;
 }
+uint32_t length(uint32_t args) {
+  ONE_ARG(list);
+  int len = length_list(list);
+  if (len == -1) return 0;
+  else return store_int32(len);
+}
 
 
 /* Booleans. */
@@ -269,6 +275,7 @@ void register_builtins(void) {
   register_builtin("cdr", cdr);
   register_builtin("set-car!", set_car);
   register_builtin("set-cdr!", set_cdr);
+  register_builtin("length", length);
 
   /* numbers */
   register_builtin("+", plus);

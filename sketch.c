@@ -68,6 +68,21 @@ int check_list(uint32_t index, int count, int strict) {
   else return 1;
 }
 
+/* returns the length of the list.
+   NOTE, IMPORTANT: returns -1 if not a proper list.
+   If this function returns a value >=0, the list has been vetted
+   and can be walked w/o further checks. */
+int length_list(uint32_t index) {
+  int count = 0;
+  while(index != C_EMPTY) {
+    if (TYPE(index) != T_PAIR) return -1;
+    index = CDR(index);
+    count++;
+  }
+  return count;
+}
+
+
 /* helper functions to store stuff into cells */
 
 uint32_t store_string(char *str, char *end, int type) {
