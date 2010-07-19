@@ -243,6 +243,28 @@ uint32_t vector_ref(uint32_t args) {
   return (VECTOR_START(vect))[k];
 }  
 
+uint32_t vector_list(uint32_t args) {
+  ONE_ARG(vect);
+  if (TYPE(vect) != T_VECT) return 0;
+  return make_list(VECTOR_START(vect), VECTOR_LEN(vect));
+}
+
+uint32_t list_vector(uint32_t args) {
+  ONE_ARG(list);
+  int len = length_list(list); if (len == -1) return 0;
+  uint32_t len_cells = (len+1)/2;
+  CHECK_CELLS(1+len_cells);
+  uint32_t index = next_cell;
+  uint64_t value = T_VECT | (uint64_t)len_cells << 16 | (uint64_t)(len) << 32;
+  cells[next_cell++] = value;
+  uint32_t *elements = (uint32_t *)&cells[next_cell];
+  for (int i = 0; i < len; i++) {
+    *elements++ = CAR(list);
+    list = CDR(list);
+  }
+  return index;
+}
+
 void register_builtins(void) {
   /* types */
   register_builtin("procedure?", procedure_p);
@@ -284,5 +306,7 @@ void register_builtins(void) {
   /* vectors */
   register_builtin("vector-length", vector_length);
   register_builtin("vector-ref", vector_ref);
+  register_builtin("vector->list", vector_list);
+  register_builtin("list->vector", list_vector);
 }
 
