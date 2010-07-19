@@ -221,6 +221,22 @@ uint32_t times(uint32_t args) {
   return plus_times(args, 0);
 }
 
+/* Vectors. */
+
+uint32_t vector_length(uint32_t args) {
+  ONE_ARG(arg);
+  if (TYPE(arg) != T_VECT) return 0;
+  return store_int32(VECTOR_LEN(arg));
+}  
+
+uint32_t vector_ref(uint32_t args) {
+  TWO_ARGS(vect, index_k);
+  if (TYPE(vect) != T_VECT || TYPE(index_k) != T_INT32) return 0;
+  int32_t k = INT32_VALUE(index_k);
+  if (k < 0 || k >= VECTOR_LEN(vect)) return 0;
+  return (VECTOR_START(vect))[k];
+}  
+
 void register_builtins(void) {
   /* types */
   register_builtin("procedure?", procedure_p);
@@ -257,5 +273,9 @@ void register_builtins(void) {
   /* numbers */
   register_builtin("+", plus);
   register_builtin("*", times);
+
+  /* vectors */
+  register_builtin("vector-length", vector_length);
+  register_builtin("vector-ref", vector_ref);
 }
 

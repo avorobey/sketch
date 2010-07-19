@@ -90,6 +90,14 @@ uint32_t store_pair(uint32_t first, uint32_t second) {
   return index;
 }
 
+uint32_t store_int32(int32_t num) {
+  uint64_t value = T_INT32;
+  CHECK_CELLS(1);
+  uint32_t index = next_cell;
+  cells[next_cell++] = value | ((uint64_t)(uint32_t)num) << 32;
+  return index;
+}
+
 /* helper func to read a #(...) literal vector */
 int read_vector(char **pstr, uint32_t *pindex) {
   uint32_t initial_indices[2];
