@@ -425,6 +425,32 @@ uint32_t eval(uint32_t index) {
           if (!check_list(args, 1, 1)) die ("bad quote syntax");
           return CAR(args);
         }
+
+        if (IS_SYMBOL(func, "if")) {
+          int len = length_list(args);
+          if (!(len == 2 || len == 3)) die("bad if syntax");
+          val = eval(CAR(args)); /* condition */
+          if (val != C_FALSE) {  /* only #if is false */
+            return eval(CAR(CDR(args)));
+          } else {
+            if (len == 3) return eval(CAR(CDR(CDR(args))));
+            else return C_UNSPEC;
+          }
+        }
+
+        if (IS_SYMBOL(func, "lambda")) {
+          int len = length_list(args);
+          if (len == -1 || len < 2) die("bad lambda syntax");
+          uint32_t args_list = CAR(args);
+          if (!check_list(args_list, 0, 0)) die ("bad lambda argument list");
+          /* TODO: check that args_list actually contains only symbols and
+             they don't repeat */
+          uint64_t value = T_FUNC; 
+          CHECK_CELLS(1);
+          uint32_t index = next_cell;
+          cells[next_cell++] = value | (uint64_t)args << 32;
+          return index;
+        }
       }
 
       /* special forms end here. Now eval the first element and check
@@ -432,15 +458,34 @@ uint32_t eval(uint32_t index) {
       val = eval(func);
       if (val == 0) die("undefined symbol as func name");
       if (TYPE(val) != T_FUNC) die("first element in list not a function");
-      if ((cells[val] & BLTIN_MASK) == 0) die("can only call builtins for now");
 
+      /* evaluate arguments and call the function */
       uint32_t num_args;
       if (!eval_args(args, arg_array, &num_args)) return 0;
-      uint32_t list = make_list(arg_array, num_args);
-      builtin_t func = (builtin_t)cells[val+1];
-
-      /* well, there you go */
-      return func(list);
+      if (cells[val] & BLTIN_MASK) {   /* builtin function */
+         uint32_t list = make_list(arg_array, num_args);
+         builtin_t func = (builtin_t)cells[val+1];
+        /* well, there you go */
+        return func(list);
+      } else {  /* lambda function */
+        uint32_t params_and_body = (uint32_t)(cells[val] >> 32);
+        uint32_t params = CAR(params_and_body);
+        if (length_list(params) != num_args) return 0;  /* TODO: informative */
+        for (uint32_t i = 0; i < num_args; i++) {
+          uint32_t param = CAR(params);
+          params = CDR(params);
+          if (TYPE(param) != T_SYM) return 0;
+          set_symbol(STR_START(param), STR_LEN(param), arg_array[i]);
+        }
+        uint32_t body = CDR(params_and_body);
+        uint32_t retval = C_UNSPEC;
+        while (body != C_EMPTY) {
+          retval = eval(CAR(body));
+          if (retval == 0) return 0;
+          body = CDR(body);
+        }
+        return retval;
+      }
     default:
       return 0;
   }
