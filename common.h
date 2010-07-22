@@ -34,6 +34,7 @@ extern uint32_t next_cell;
 #define T_FUNC   6  /* function, a.k.a. closure */
 #define T_VECT   7  /* vector */
 #define T_CHAR   8  /* character */
+#define T_VAR    9  /* reference to a lexical variable */
 
 /* true for builtin, as opposed to lambda-defined, functions */
 #define BLTIN_MASK 16
@@ -50,6 +51,9 @@ extern uint32_t next_cell;
 
 #define CHAR_VALUE(i) (unsigned char)(cells[i] >> 32)
 #define INT32_VALUE(i) (int32_t)(cells[i] >> 32)
+
+#define VAR_FRAME(i) (uint32_t)((cells[i] >> 32) & 0xFFFF)
+#define VAR_SLOT(i) (uint32_t)((cells[i] >> 32) >> 16)
 
 #define LIST_LIKE(i) (TYPE(i) == T_PAIR || i == C_EMPTY)
 

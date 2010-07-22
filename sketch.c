@@ -130,6 +130,15 @@ uint32_t store_int32(int32_t num) {
   return index;
 }
 
+uint32_t store_var(uint32_t slot, uint32_t frame) {
+  uint64_t value = T_VAR;
+  CHECK_CELLS(1);
+  uint32_t index = next_cell;
+  cells[next_cell++] = value | ((uint64_t)frame << 32) |
+                         (uint64_t)slot << 48;
+  return index;
+}
+ 
 /* helper func to read a #(...) literal vector */
 int read_vector(char **pstr, uint32_t *pindex) {
   uint32_t initial_indices[2];
@@ -368,6 +377,9 @@ void dump_value(uint32_t index, int implicit_paren) {
       if (c == ' ') printf("space");
       else if (c == '\n') printf("newline");
       else putchar(c);
+      break;
+    case T_VAR:
+      printf("#<var:%u,%u>", VAR_SLOT(index), VAR_FRAME(index));
       break;
     default:
       break;
