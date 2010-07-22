@@ -58,6 +58,10 @@ typedef uint32_t (*builtin_t)(uint32_t);
 /* functions in symbols.cc */
 uint32_t get_symbol(const char *name, int len);
 void set_symbol(const char *name, int len, uint32_t val);
+void *new_symbol_table();
+void delete_symbol_table(void *table);
+uint32_t new_symbol(void *table, const char *name, int len);
+uint32_t num_symbols(void *table);
 
 /* functions in builtins.c */
 void register_builtins(void);
