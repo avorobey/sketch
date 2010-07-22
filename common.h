@@ -74,4 +74,5 @@ uint32_t store_pair(uint32_t first, uint32_t second);
 uint32_t store_int32(int32_t num);
 int length_list(uint32_t index);
 uint32_t make_list(uint32_t *values, uint32_t count);
+uint32_t make_vector(uint32_t size, int zero_it);
 

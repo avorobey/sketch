@@ -53,6 +53,23 @@ uint32_t make_list(uint32_t *values, uint32_t count) {
   return pair;
 }
 
+uint32_t make_vector(uint32_t size, int zero_it) {
+  uint32_t len = (size+1)/2;  /* num of extra cells required */
+  CHECK_CELLS(len+1);
+  uint32_t index = next_cell;
+  uint64_t value = T_VECT | (uint64_t)len << 16 | (uint64_t)(size) << 32;
+  cells[next_cell++] = value;
+  if (zero_it) memset(VECTOR_START(index), 0, size*sizeof(uint32_t));
+  next_cell += len;
+  return index;
+}
+ 
+uint32_t make_env(uint32_t size, uint32_t prev) {
+  uint32_t env = make_vector(size+1, 1);
+  *VECTOR_START(env) = prev;
+  return env;
+}
+
 /* checks that index is a proper ()-terminated list with 
    at least count elements. if strict is true, must be exactly
    count elements. count==0, strict==0 allows any list.
@@ -143,14 +160,9 @@ int read_vector(char **pstr, uint32_t *pindex) {
   /* we've seen ')' and all is good. store and cleanup */
   str++; /* one past the ')' */
 
-  uint32_t len = (cur_index+1)/2;  /* num of extra cells required */
-  CHECK_CELLS(1+len);
-  uint32_t index = next_cell;
-  uint64_t value = T_VECT | (uint64_t)len << 16 | (uint64_t)(cur_index) << 32;
-  cells[next_cell++] = value;
+  uint32_t index = make_vector(cur_index, 0);
   memcpy(VECTOR_START(index), indices, cur_index*sizeof(uint32_t));
   if(malloced) free(indices);
-  next_cell+=len;
   *pindex = index;
   *pstr = str;
   return 1;

@@ -252,12 +252,8 @@ uint32_t vector_list(uint32_t args) {
 uint32_t list_vector(uint32_t args) {
   ONE_ARG(list);
   int len = length_list(list); if (len == -1) return 0;
-  uint32_t len_cells = (len+1)/2;
-  CHECK_CELLS(1+len_cells);
-  uint32_t index = next_cell;
-  uint64_t value = T_VECT | (uint64_t)len_cells << 16 | (uint64_t)(len) << 32;
-  cells[next_cell++] = value;
-  uint32_t *elements = (uint32_t *)&cells[next_cell];
+  uint32_t index = make_vector(len, 0);
+  uint32_t *elements = VECTOR_START(index);
   for (int i = 0; i < len; i++) {
     *elements++ = CAR(list);
     list = CDR(list);
