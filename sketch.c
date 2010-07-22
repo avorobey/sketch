@@ -386,6 +386,18 @@ void dump_value(uint32_t index, int implicit_paren) {
   }
 }
 
+uint32_t prepare(uint32_t index) {
+  switch(TYPE(index)) {
+    case T_SYM:
+      break;
+    case T_PAIR:
+      break;
+    default:
+      break;
+  }
+  return index;
+}
+
 uint32_t eval(uint32_t index);
 
 /* returns true/false on success/failure */
@@ -531,12 +543,14 @@ int main(int argc, char **argv) {
     uint32_t index;
     int can_read = read_value(&str, &index, 0);
     if (can_read) {
-      uint32_t res = eval(index);
-      if (res) {
-        dump_value(res, 0); printf("\n");
-      } else printf("eval failed.\n");
-    }
-    else printf("failed reading at: %s\n", str);
+      uint32_t prepared = prepare(index);
+      if (prepared) {
+        uint32_t res = eval(prepared);
+        if (res) {
+          dump_value(res, 0); printf("\n");
+        } else printf("eval failed.\n");
+      } else printf("prepare failed.\n");
+    } else printf("failed reading at: %s\n", str);
   }
   return 0;
 }
