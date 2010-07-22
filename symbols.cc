@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <string>
+#include <list>
 #include <tr1/unordered_map>
 
 using namespace std;
@@ -8,10 +9,10 @@ using namespace std;
 extern "C" uint32_t get_symbol(const char *name, int len);
 extern "C" void set_symbol(const char *name, int len, uint32_t val);
 
-extern "C" void *new_symbol_table();
-extern "C" void delete_symbol_table(void *table);
-extern "C" uint32_t new_symbol(void *table, const char *name, int len);
-extern "C" uint32_t num_symbols(void *table);
+extern "C" int find_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
+extern "C" void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
+extern "C" void add_symbol_table();
+extern "C" void delete_symbol_table();
 
 tr1::unordered_map<string,uint32_t> table;
 
@@ -37,27 +38,37 @@ struct symbol_table {
   tr1::unordered_map<string, uint32_t> table;
 };
 
-void *new_symbol_table() {
-  symbol_table *st = new symbol_table();
-  st->next = 1;
-  return (void *)st;
+list<symbol_table> tables;
+
+void add_symbol_table() {
+  symbol_table st;
+  st.next = 1;
+  tables.push_front(st);
 }
 
-void delete_symbol_table(void *table) {
-  symbol_table *st = (symbol_table *)table;
-  delete st;
+void delete_symbol_table() {
+  tables.pop_front();
 }
 
-uint32_t new_symbol(void *table, const char *name, int len) {
+int find_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
   string str = sym_name(name, len);
-  symbol_table *st = (symbol_table *)table;
-  if (st->table.find(str) != st->table.end()) return st->table[str];
-  st->table[str] = st->next++;
-  return st->next-1;
+  int pos = 0;
+  for (list<symbol_table>::iterator it = tables.begin();
+       it != tables.end(); ++it, ++pos) {
+    if (it->table.find(str) != it->table.end()) {
+      *slot = it->table[str];
+      *frame = pos;
+      return 1;
+    }
+  }
+  return 0;
 }
 
-uint32_t num_symbols(void *table) {
-  symbol_table *st = (symbol_table *)table;
-  return st->next-1;
+void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
+  string str = sym_name(name, len);
+  symbol_table& st = tables.front();
+  *slot = st.next;
+  *frame = 0;
+  st.table[str] = st.next++;
 }
 
