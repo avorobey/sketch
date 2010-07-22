@@ -13,6 +13,7 @@ extern "C" int find_symbol(const char *name, int len, uint32_t *slot, uint32_t *
 extern "C" void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
 extern "C" void add_symbol_table();
 extern "C" void delete_symbol_table();
+extern "C" uint32_t latest_table_size();
 
 tr1::unordered_map<string,uint32_t> table;
 
@@ -70,5 +71,9 @@ void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
   *slot = st.next;
   *frame = 0;
   st.table[str] = st.next++;
+}
+
+uint32_t latest_table_size() {
+  return tables.front().next;
 }
 

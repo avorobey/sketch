@@ -67,6 +67,7 @@ int find_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
 void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
 void add_symbol_table();
 void delete_symbol_table();
+uint32_t latest_table_size();
 
 /* functions in builtins.c */
 void register_builtins(void);
