@@ -612,7 +612,6 @@ uint32_t eval(uint32_t index, uint32_t env) {
       cells[next_cell++] = cells[index];
       cells[next_cell++] = cells[index+1];
       SET_CAR(new_index, env);
-      printf("dumping lambda: "); dump_value(new_index, 0); printf("\n");
       return new_index;
     case T_PAIR:
       func = CAR(index);
