@@ -71,9 +71,6 @@ extern uint32_t toplevel_env;
 typedef uint32_t (*builtin_t)(uint32_t);
 
 /* functions in symbols.cc */
-uint32_t get_symbol(const char *name, int len);
-void set_symbol(const char *name, int len, uint32_t val);
-
 int find_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
 void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame);
 void add_symbol_table();
