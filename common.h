@@ -8,6 +8,7 @@
 #define MAX_CELLS 1000000
 extern uint64_t cells[];
 extern uint32_t next_cell;
+extern uint32_t toplevel_env;
 
 /* special index values, pre-filled and always occupied */
 #define C_ERROR 0 
@@ -48,10 +49,10 @@ extern uint32_t next_cell;
 #define SET_CDR(i, val) do { cells[i+1] = (cells[i+1] & 0xFFFFFFFF00000000L) \
                              | (uint64_t)val; } while(0)
 
-#define STR_START(i) (char *)(cells+i+1)
+#define STR_START(i) ((char *)(cells+i+1))
 #define STR_LEN(i) (cells[i] >> 32)
 
-#define VECTOR_START(i) (uint32_t *)(cells+i+1)
+#define VECTOR_START(i) ((uint32_t *)(cells+i+1))
 #define VECTOR_LEN(i) (cells[i] >> 32)
 
 #define CHAR_VALUE(i) (unsigned char)(cells[i] >> 32)
@@ -91,4 +92,5 @@ uint32_t store_int32(int32_t num);
 int length_list(uint32_t index);
 uint32_t make_list(uint32_t *values, uint32_t count);
 uint32_t make_vector(uint32_t size, int zero_it);
+void store_env(uint32_t env, uint32_t slot, uint32_t value);
 

@@ -17,6 +17,7 @@ void register_builtin(char *name, builtin_t func) {
 
   uint32_t slot, frame;
   add_symbol(name, strlen(name), &slot, &frame);
+  store_env(toplevel_env, slot, index);
 }
 
 /* Every builtin gets an index to a list of all its arguments. If it

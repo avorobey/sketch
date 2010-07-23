@@ -20,6 +20,8 @@ void init_cells(void) {
   cells[C_UNSPEC] = cells[C_EMPTY] = cells[C_FALSE] = cells[C_TRUE] = T_RESV;
 }
 
+uint32_t toplevel_env = 0;
+
 #define SKIP_WS(str) do { while(isspace(*str)) ++str; } while(0)
 
 /* helper rules for identifying symbols */
@@ -69,6 +71,15 @@ uint32_t make_env(uint32_t size, uint32_t prev) {
   *VECTOR_START(env) = prev;
   return env;
 }
+
+void store_env(uint32_t env, uint32_t slot, uint32_t value) {
+  if (slot > VECTOR_LEN(env)) {
+    /* TODO: do something smart for the toplevel environment */
+    die("environment out of range");
+  }
+  VECTOR_START(env)[slot] = value;
+}
+  
 
 /* checks that index is a proper ()-terminated list with 
    at least count elements. if strict is true, must be exactly
@@ -666,9 +677,12 @@ uint32_t eval(uint32_t index) {
 
 int main(int argc, char **argv) {
   char buf[512];
+
   init_cells();
   add_symbol_table();  /* for the global environment */
+  toplevel_env = make_env(10000, 1);
   register_builtins();
+
   while(1) {
     printf("%d cells> ", next_cell);
     if (fgets(buf, 512, stdin) == 0) { 
