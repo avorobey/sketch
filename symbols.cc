@@ -76,9 +76,13 @@ void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
   if (tables.size() == 0) cpp_die("no symbol tables, can't add a symbol");
   string str = sym_name(name, len);
   symbol_table& st = tables.front();
-  *slot = st.next;
+  if (st.table.find(str) != st.table.end()) {
+    *slot = st.table[str];
+  } else {
+    *slot = st.next;
+    st.table[str] = st.next++;
+  }
   *frame = 0;
-  st.table[str] = st.next++;
 }
 
 uint32_t latest_table_size() {

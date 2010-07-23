@@ -447,6 +447,14 @@ uint32_t prepare(uint32_t index, uint32_t *deferred_define) {
           delete_symbol_table();
           return res;
         }
+
+        /* Special forms that don't exist in the symbol table. TODO: simplify. */
+        if (IS_SYMBOL(func, "set!") || IS_SYMBOL(func, "if")) {
+          /* only walk the args */
+          uint32_t res = prepare_list(args);
+          if (res == 0) return 0;
+          return index;
+        }
       }
       /* The usual case: resolve the list recursively. */
       return prepare_list(index);
