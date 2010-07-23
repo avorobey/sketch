@@ -13,7 +13,6 @@ void register_builtin(char *name, builtin_t func) {
   uint32_t index = next_cell;
   cells[next_cell++] = value;
   cells[next_cell++] = (uint64_t)(uintptr_t)func;
-  set_symbol(name, strlen(name), index);
 
   uint32_t slot, frame;
   add_symbol(name, strlen(name), &slot, &frame);
