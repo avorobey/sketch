@@ -714,6 +714,24 @@ uint32_t eval(uint32_t index, uint32_t env) {
   }
 }
 
+/* 1 if we seem to be inside a list, based on parens parity */
+int in_flight(char *str) {
+  int paren_level = 0;
+  int in_string = 0;
+  while (*str) {
+    if (*str == '(' && !in_string) paren_level++;
+    if (*str == ')' && !in_string) {
+      if (paren_level == 0) return 0;
+      else paren_level --;
+    }
+    if (*str == '#' && *(str+1) == '\\' && !in_string) str+=2;
+    if (*str == '\\' && in_string) str++;
+    if (*str == '"') in_string = !in_string;
+    str++;
+  }
+  return (paren_level > 0 || in_string);
+}
+
 #define LINE_MAX 20000
 char buf[LINE_MAX];
 
@@ -725,9 +743,6 @@ int main(int argc, char **argv) {
 
   while(1) {
     printf("%d cells> ", next_cell);
-    uint32_t index;
-    int can_read;
-    char *str;
     buf[0] = '\0';
     while(1) {
       int size = strlen(buf);
@@ -736,14 +751,15 @@ int main(int argc, char **argv) {
         if (feof(stdin)) return 0;
         else die("fgets() failed");
       }
-      str = buf;
-      if ((can_read = read_value(&str, &index, 0)) == -1) {
+      if (in_flight(buf)) {
         printf("... ");
         continue;  /* read more */
       }
       break;
     }  
-    if (!can_read) {
+    char *str = buf;
+    uint32_t index;
+    if (!read_value(&str, &index, 0)) {
       printf("failed reading at: %s\n", str);
       continue;
     }
