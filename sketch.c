@@ -359,7 +359,13 @@ void dump_value(uint32_t index, int implicit_paren) {
       }
       break;
     case T_FUNC:
-      printf("*func*");
+      if (cells[index] & BLTIN_MASK) 
+        printf("*func:bultin*");
+      else {
+        printf("*func:%u vars, %u args, body:",
+               FUNC_VARCOUNT(index), FUNC_ARGCOUNT(index));
+        dump_value(FUNC_BODY(index), 0);  putchar('*');
+      }
       break;
     case T_VECT:
       length = VECTOR_LEN(index);
@@ -427,11 +433,10 @@ uint32_t prepare(uint32_t index, uint32_t *deferred_define) {
           SET_CAR(args, var);
           if (deferred_define) { 
             *deferred_define = CDR(args);  /* (val) not val, deliberately. */
-            return 1;
           } else { 
             if (prepare_list(CDR(args)) == 0) return 0;
-            else return index;
           }
+          return index;
         }
 
         if (IS_SYMBOL(func, "lambda")) {

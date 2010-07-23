@@ -60,6 +60,11 @@ extern uint32_t next_cell;
 #define VAR_FRAME(i) (uint32_t)((cells[i] >> 32) & 0xFFFF)
 #define VAR_SLOT(i) (uint32_t)((cells[i] >> 32) >> 16)
 
+#define FUNC_VARCOUNT(i) (uint32_t)((cells[i] >> 32) & 0xFFFF)
+#define FUNC_ARGCOUNT(i) (uint32_t)((cells[i] >> 32) >> 16)
+#define FUNC_BODY(i) CDR(i)
+#define FUNC_ENV(i) CAR(i)
+
 #define LIST_LIKE(i) (TYPE(i) == T_PAIR || i == C_EMPTY)
 
 typedef uint32_t (*builtin_t)(uint32_t);

@@ -82,6 +82,6 @@ void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
 }
 
 uint32_t latest_table_size() {
-  return tables.front().next;
+  return tables.front().next-1;
 }
 
