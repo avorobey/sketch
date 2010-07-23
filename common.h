@@ -43,6 +43,11 @@ extern uint32_t next_cell;
 #define CAR(i) (cells[i+1] >> 32)
 #define CDR(i) (cells[i+1] & 0xFFFFFFFF)
 
+#define SET_CAR(i, val) do { cells[i+1] = (cells[i+1] & 0xFFFFFFFF) \
+                             | (uint64_t)val << 32; } while(0)
+#define SET_CDR(i, val) do { cells[i+1] = (cells[i+1] & 0xFFFFFFFF00000000L) \
+                             | (uint64_t)val; } while(0)
+
 #define STR_START(i) (char *)(cells+i+1)
 #define STR_LEN(i) (cells[i] >> 32)
 

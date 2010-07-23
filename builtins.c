@@ -14,6 +14,9 @@ void register_builtin(char *name, builtin_t func) {
   cells[next_cell++] = value;
   cells[next_cell++] = (uint64_t)(uintptr_t)func;
   set_symbol(name, strlen(name), index);
+
+  uint32_t slot, frame;
+  add_symbol(name, strlen(name), &slot, &frame);
 }
 
 /* Every builtin gets an index to a list of all its arguments. If it
@@ -171,15 +174,13 @@ uint32_t cons(uint32_t args) {
 uint32_t set_car(uint32_t args) {
   TWO_ARGS(arg1, arg2);
   if (TYPE(arg1) != T_PAIR) return 0;
-  uint64_t val = cells[arg1+1];
-  cells[arg1+1] = (val & 0xFFFFFFFF) | (uint64_t)arg2 << 32;
+  SET_CAR(arg1, arg2);
   return C_UNSPEC;
 }
 uint32_t set_cdr(uint32_t args) {
   TWO_ARGS(arg1, arg2);
   if (TYPE(arg1) != T_PAIR) return 0;
-  uint64_t val = cells[arg1+1];
-  cells[arg1+1] = (val & 0xFFFFFFFF00000000L) | (uint64_t)arg2;
+  SET_CDR(arg1, arg2);
   return C_UNSPEC;
 }
 uint32_t length(uint32_t args) {

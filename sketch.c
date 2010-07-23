@@ -386,8 +386,15 @@ void dump_value(uint32_t index, int implicit_paren) {
   }
 }
 
-uint32_t prepare(uint32_t index) {
-  uint32_t slot, frame;
+/* we count on the compiler to precompute constant strlens */
+#define IS_SYMBOL(index, name) (STR_LEN(index) == strlen(name) && \
+                                strcmp(STR_START(index), name) == 0)
+
+uint32_t prepare_list(uint32_t list);
+uint32_t prepare_lambda(uint32_t args);
+
+uint32_t prepare(uint32_t index, uint32_t *deferred_define) {
+  uint32_t slot, frame, func, args, sym;
   int res;
   switch(TYPE(index)) {
     case T_SYM:
@@ -397,14 +404,122 @@ uint32_t prepare(uint32_t index) {
         return var;
       } else {
         printf("Undefined variable: "); dump_value(index, 0);
+        putchar('\n');
         return 0;
       }
       break;
     case T_PAIR:
+      func = CAR(index);
+      args = CDR(index);
+      if (!LIST_LIKE(args)) {
+        printf("A dot pair but not a list in prepare()\n");
+        return 0;
+      };
+      if (TYPE(func) == T_SYM) {
+        if (IS_SYMBOL(func, "quote")) return index;
+
+        if (IS_SYMBOL(func, "define")) {
+          if (!check_list(args, 2, 1)) die("bad define/set! syntax");
+          sym = CAR(args);
+          if (TYPE(sym) != T_SYM) die("bad define syntax in prepare");
+          add_symbol(STR_START(sym), STR_LEN(sym), &slot, &frame);
+          uint32_t var = store_var(slot, frame);
+          SET_CAR(args, var);
+          if (deferred_define) { 
+            *deferred_define = CDR(args);  /* (val) not val, deliberately. */
+            return 1;
+          } else { 
+            if (prepare_list(CDR(args)) == 0) return 0;
+            else return index;
+          }
+        }
+
+        if (IS_SYMBOL(func, "lambda")) {
+          /* Easier to add/delete symbol tables here than chase exit points
+             in prepare_lambda(). */
+          add_symbol_table();
+          uint32_t res = prepare_lambda(args);
+          delete_symbol_table();
+          return res;
+        }
+      }
+      /* The usual case: resolve the list recursively. */
+      return prepare_list(index);
       break;
     default:
       break;
   }
+  return index;
+}
+
+/* prepare() the list recursively, assuming that it's not a special case
+   like quote, define, lambda, etc. taken care in prepare() itself. */
+uint32_t prepare_list(uint32_t list) {
+  if (!check_list(list, 0, 0)) die("bad list given to prepare_list()");
+  uint32_t orig_list = list;
+  while(list != C_EMPTY) {
+    uint32_t res = prepare(CAR(list), 0);
+    if (res == 0) return 0;
+    if (res != CAR(list)) SET_CAR(list, res);
+    list = CDR(list);
+  }
+  return orig_list;
+}
+
+/* maximum number of define statements inside one lambda */
+#define MAX_INTERNAL_DEFINES 1000
+uint32_t prepare_lambda(uint32_t args) {
+  uint32_t defines[MAX_INTERNAL_DEFINES];
+  uint32_t defines_curr = 0;
+  uint32_t slot, frame;
+
+  /* Basic argument correctness. */
+  int len = length_list(args);
+  if (len == -1 || len < 2) die("bad lambda syntax");
+  uint32_t args_list = CAR(args);
+  if (!check_list(args_list, 0, 0)) die ("bad lambda argument list");
+
+  /* Walk the argument list and create slots. TODO: check uniqueness */
+  int args_number = length_list(args_list);
+  while(args_list != C_EMPTY) {
+    uint32_t sym = CAR(args_list);
+    if (TYPE(sym) != T_SYM) die ("not a symbol in lambda arg list");
+    add_symbol(STR_START(sym), STR_LEN(sym), &slot, &frame);
+    args_list = CDR(args_list);
+  }
+          
+  /* Go over the body and walk it recursively, deferring defines. */
+  uint32_t body = CDR(args);
+  while (body != C_EMPTY) {
+    uint32_t statement = CAR(body);
+    defines[defines_curr] = 0;
+    uint32_t res = prepare(statement, &defines[defines_curr]);
+    if (res == 0) return 0;
+    if (res != statement) SET_CAR(body, res);
+    if (defines[defines_curr] != 0) {
+      ++defines_curr;
+      if (defines_curr >= MAX_INTERNAL_DEFINES) die("too many internal defines");
+    }
+    body = CDR(body);
+  }
+  
+  /* Go over deferred define bodies, if any. */
+  for (int i = 0; i < defines_curr; i++) {
+    uint32_t res = prepare_list(defines[i]);
+    if (res == 0) return 0;
+  }
+
+  /* Create a T_FUNC, record the number of slots. */
+  CHECK_CELLS(2);
+  uint32_t index = next_cell;
+  uint64_t value = T_FUNC;
+  uint32_t count_vars = latest_table_size();
+  value |= (uint64_t)count_vars << 32;
+  value |= (uint64_t)args_number << 48;
+  cells[next_cell++] = value;
+
+  // Higher 32-bit will be an env pointer in closures. */
+  cells[next_cell++] = (uint64_t)CDR(args);
   return index;
 }
 
@@ -426,9 +541,6 @@ int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
   return 1;
 }
 
-/* we count on the compiler to precompute constant strlens */
-#define IS_SYMBOL(index, name) (STR_LEN(index) == strlen(name) && \
-                                strcmp(STR_START(index), name) == 0)
 uint32_t eval(uint32_t index) {
   uint32_t sym, val, func, args;
   uint32_t arg_array[MAX_ARGS];
@@ -542,6 +654,7 @@ uint32_t eval(uint32_t index) {
 int main(int argc, char **argv) {
   char buf[512];
   init_cells();
+  add_symbol_table();  /* for the global environment */
   register_builtins();
   while(1) {
     printf("%d cells> ", next_cell);
@@ -553,13 +666,14 @@ int main(int argc, char **argv) {
     uint32_t index;
     int can_read = read_value(&str, &index, 0);
     if (can_read) {
-      uint32_t prepared = prepare(index);
+      uint32_t prepared = prepare(index, 0);
       if (prepared) {
-        uint32_t res = eval(prepared);
-        if (res) {
-          dump_value(res, 0); printf("\n");
-        } else printf("eval failed.\n");
+        printf("prepared: "); dump_value(prepared, 0); putchar('\n');
       } else printf("prepare failed.\n");
+//        uint32_t res = eval(index); // eval(prepared);
+//        if (res) {
+//          dump_value(res, 0); printf("\n");
+//        } else printf("eval failed.\n");
     } else printf("failed reading at: %s\n", str);
   }
   return 0;

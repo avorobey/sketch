@@ -5,6 +5,8 @@
 
 using namespace std;
 
+extern "C" void die(char *msg);
+
 /* returns 0 when not found */
 extern "C" uint32_t get_symbol(const char *name, int len);
 extern "C" void set_symbol(const char *name, int len, uint32_t val);
@@ -16,6 +18,10 @@ extern "C" void delete_symbol_table();
 extern "C" uint32_t latest_table_size();
 
 tr1::unordered_map<string,uint32_t> table;
+
+void cpp_die(const char *msg) {
+  die(const_cast<char *>(msg));
+}
 
 string sym_name(const char* name, int len) {
   string str;
@@ -48,6 +54,7 @@ void add_symbol_table() {
 }
 
 void delete_symbol_table() {
+  if (tables.size() == 0) cpp_die("no symbol tables, can't delete one");
   tables.pop_front();
 }
 
@@ -66,6 +73,7 @@ int find_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
 }
 
 void add_symbol(const char *name, int len, uint32_t *slot, uint32_t *frame) {
+  if (tables.size() == 0) cpp_die("no symbol tables, can't add a symbol");
   string str = sym_name(name, len);
   symbol_table& st = tables.front();
   *slot = st.next;
