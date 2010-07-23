@@ -697,7 +697,7 @@ uint32_t eval(uint32_t index, uint32_t env) {
   }
 }
 
-/* 1 if we seem to be inside a list, based on parens parity */
+/* 1 if we seem to be inside a list or a string, based on parens parity */
 int in_flight(char *str) {
   int paren_level = 0;
   int in_string = 0;
@@ -705,7 +705,7 @@ int in_flight(char *str) {
     if (*str == '(' && !in_string) paren_level++;
     if (*str == ')' && !in_string) {
       if (paren_level == 0) return 0;
-      else paren_level --;
+      else paren_level--;
     }
     if (*str == '#' && *(str+1) == '\\' && !in_string) str+=2;
     if (*str == '\\' && in_string) str++;
