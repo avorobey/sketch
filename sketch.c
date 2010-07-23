@@ -80,6 +80,14 @@ void store_env(uint32_t env, uint32_t slot, uint32_t value) {
   VECTOR_START(env)[slot] = value;
 }
   
+uint32_t follow_frame(uint32_t env, uint32_t frame) {
+  while (frame > 0) {
+    if (env == 0) die("bad frame or env in find_frame");
+    env = VECTOR_START(env)[0]; frame--;
+  }
+  if (env == 0) die("bad frame or env in find_frame");
+  return env;
+}
 
 /* checks that index is a proper ()-terminated list with 
    at least count elements. if strict is true, must be exactly
@@ -149,7 +157,7 @@ uint32_t store_var(uint32_t slot, uint32_t frame) {
                          (uint64_t)slot << 48;
   return index;
 }
- 
+
 /* helper func to read a #(...) literal vector */
 int read_vector(char **pstr, uint32_t *pindex) {
   uint32_t initial_indices[2];
@@ -373,8 +381,9 @@ void dump_value(uint32_t index, int implicit_paren) {
       if (cells[index] & BLTIN_MASK) 
         printf("*func:bultin*");
       else {
-        printf("*func:%u vars, %u args, body:",
-               FUNC_VARCOUNT(index), FUNC_ARGCOUNT(index));
+        printf("*func:%u vars, %u args, %s, body:",
+               FUNC_VARCOUNT(index), FUNC_ARGCOUNT(index),
+               (FUNC_ENV(index) == 0 ? "w/o env" : "with env"));
         dump_value(FUNC_BODY(index), 0);  putchar('*');
       }
       break;
@@ -547,13 +556,13 @@ uint32_t prepare_lambda(uint32_t args) {
   return index;
 }
 
-uint32_t eval(uint32_t index);
+uint32_t eval(uint32_t index, uint32_t env);
 
 /* returns true/false on success/failure */
-int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
+int eval_args(uint32_t list, uint32_t env, uint32_t *args, uint32_t *num_args) {
   uint32_t count = 0;
   while(count < MAX_ARGS && list != C_EMPTY) {
-    args[count] = eval(CAR(list));
+    args[count] = eval(CAR(list), env);
     if (args[count] == 0) return 0;
     count++;
     list = CDR(list);
@@ -565,9 +574,10 @@ int eval_args(uint32_t list, uint32_t *args, uint32_t *num_args) {
   return 1;
 }
 
-uint32_t eval(uint32_t index) {
-  uint32_t sym, val, func, args;
+uint32_t eval(uint32_t index, uint32_t env) {
+  uint32_t var, val, func, args;
   uint32_t arg_array[MAX_ARGS];
+  uint32_t var_env;
   switch(TYPE(index)) {
     case T_INT32:
     case T_RESV:
@@ -575,9 +585,29 @@ uint32_t eval(uint32_t index) {
     case T_CHAR:
       return index;
     case T_SYM:
-      val = get_symbol(STR_START(index), STR_LEN(index));
-      if (val == 0) die("undefined symbol");
-      return val;
+      printf("eval: should not get a naked symbol");
+      return 0;
+    case T_VAR:
+      var_env = follow_frame(env, VAR_FRAME(index));
+      return VECTOR_START(var_env)[VAR_SLOT(index)];
+    case T_FUNC:
+      /* Executing a lambda form. */
+      if ((cells[index] & BLTIN_MASK) != 0) {
+        printf("evaluating a naked builtin func shouldn't be possible.\n");
+        return 0;
+      }
+      if (FUNC_ENV(index) != 0) {
+        printf("evaluating a naked closure shouldn't be possible.\n");
+        return 0;
+      }
+      /* Copy the T_FUNC and set its environment. */
+      CHECK_CELLS(2);
+      uint32_t new_index = next_cell;
+      cells[next_cell++] = cells[index];
+      cells[next_cell++] = cells[index+1];
+      SET_CAR(new_index, env);
+      printf("dumping lambda: "); dump_value(new_index, 0); printf("\n");
+      return new_index;
     case T_PAIR:
       func = CAR(index);
       args = CDR(index);
@@ -591,15 +621,15 @@ uint32_t eval(uint32_t index) {
         if (is_define || is_set) {
           /* the only allowed syntax here is ([define/set!] symbol value) */
           if (!check_list(args, 2, 1)) die("bad define/set! syntax");
-          sym = CAR(args);
+          var = CAR(args);
           val = CAR(CDR(args));
-          val = eval(val);
+          val = eval(val, env);
           if (val == 0) die("couldn't eval the value in define/set!");
-          if (TYPE(sym) != T_SYM) die ("define/set! followed by non-symbol");
-          if (is_set && get_symbol(STR_START(sym), STR_LEN(sym))==0)
-            die("set! on an undefined symbol");
-          set_symbol(STR_START(sym), STR_LEN(sym), val);
-          return val; /* TODO: actually undefined value */
+ 
+          if (TYPE(var) != T_VAR) die ("not a variable in define/set");
+          uint32_t var_env = follow_frame(env, VAR_FRAME(var));
+          store_env(var_env, VAR_SLOT(var), val);
+          return C_UNSPEC;
         }
 
         if (IS_SYMBOL(func, "quote")) {
@@ -611,11 +641,11 @@ uint32_t eval(uint32_t index) {
         if (IS_SYMBOL(func, "if")) {
           int len = length_list(args);
           if (!(len == 2 || len == 3)) die("bad if syntax");
-          val = eval(CAR(args)); /* condition */
+          val = eval(CAR(args), env); /* condition */
           if (val != C_FALSE) {  /* only #if is false */
-            return eval(CAR(CDR(args)));
+            return eval(CAR(CDR(args)), env);
           } else {
-            if (len == 3) return eval(CAR(CDR(CDR(args))));
+            if (len == 3) return eval(CAR(CDR(CDR(args))), env);
             else return C_UNSPEC;
           }
         }
@@ -637,13 +667,13 @@ uint32_t eval(uint32_t index) {
 
       /* special forms end here. Now eval the first element and check
          that it's a function. */
-      val = eval(func);
+      val = eval(func, env);
       if (val == 0) die("undefined symbol as func name");
       if (TYPE(val) != T_FUNC) die("first element in list not a function");
 
       /* evaluate arguments and call the function */
       uint32_t num_args;
-      if (!eval_args(args, arg_array, &num_args)) return 0;
+      if (!eval_args(args, env, arg_array, &num_args)) return 0;
       if (cells[val] & BLTIN_MASK) {   /* builtin function */
          /* TODO: do we really need a list for builtin funcs? Reevaluate the
             interface to them after lexical scoping & tail calls are done. */
@@ -652,19 +682,22 @@ uint32_t eval(uint32_t index) {
         /* well, there you go */
         return func(list);
       } else {  /* lambda function */
-        uint32_t params_and_body = (uint32_t)(cells[val] >> 32);
-        uint32_t params = CAR(params_and_body);
-        if (length_list(params) != num_args) return 0;  /* TODO: informative */
-        for (uint32_t i = 0; i < num_args; i++) {
-          uint32_t param = CAR(params);
-          params = CDR(params);
-          if (TYPE(param) != T_SYM) return 0;
-          set_symbol(STR_START(param), STR_LEN(param), arg_array[i]);
+        uint32_t body = FUNC_BODY(val);
+        if (num_args != FUNC_ARGCOUNT(val)) {
+          printf("eval: number of args mismatch.\n");
+          return 0;
         }
-        uint32_t body = CDR(params_and_body);
+        /* Create a new environment, tied to the one stored in T_FUNC. */
+        /* If we did our job right, zero_it in the call to make_env() is
+           not necessary. */
+        uint32_t new_env = make_env(FUNC_VARCOUNT(val), 0);
+        VECTOR_START(new_env)[0] = FUNC_ENV(val);
+        for (uint32_t i = 0; i < num_args; i++) {
+          store_env(new_env, i+1, arg_array[i]);
+        }
         uint32_t retval = C_UNSPEC;
         while (body != C_EMPTY) {
-          retval = eval(CAR(body));
+          retval = eval(CAR(body), new_env);
           if (retval == 0) return 0;
           body = CDR(body);
         }
@@ -697,10 +730,10 @@ int main(int argc, char **argv) {
       if (prepared) {
         printf("prepared: "); dump_value(prepared, 0); putchar('\n');
       } else printf("prepare failed.\n");
-//        uint32_t res = eval(index); // eval(prepared);
-//        if (res) {
-//          dump_value(res, 0); printf("\n");
-//        } else printf("eval failed.\n");
+        uint32_t res = eval(prepared, toplevel_env);
+        if (res) {
+          dump_value(res, 0); printf("\n");
+        } else printf("eval failed.\n");
     } else printf("failed reading at: %s\n", str);
   }
   return 0;
