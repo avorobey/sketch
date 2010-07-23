@@ -169,9 +169,9 @@ int read_vector(char **pstr, uint32_t *pindex) {
     SKIP_WS(str);
     if (*str == ')') break;
     int res = read_value(&str, &indices[cur_index], 0);
-    if (res == 0) { 
+    if (res != 1) { 
       if (malloced) free(indices);
-      return 0;
+      return res;
     }
     cur_index++;
     if (cur_index >= max_index) {  /* need to grow */
@@ -196,6 +196,10 @@ int read_vector(char **pstr, uint32_t *pindex) {
   return 1;
 }
 
+/* 0 means failure.
+   1 means success.
+  -1 means "string ended expectedly, feel free to ask for more input" */
+
 int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
   char *str = *pstr;
   int num, count;
@@ -203,6 +207,8 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
   uint32_t index = next_cell;
 
   SKIP_WS(str);
+  if (*str == '\0') return -1;
+
   if (implicit_paren || *str == '(') {
     if (!implicit_paren) ++str;
     SKIP_WS(str);
@@ -214,7 +220,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     }
     uint32_t index1;
     int res = read_value(&str, &index1, 0);
-    if (!res) return 0;
+    if (res!=1) return res;
 
     SKIP_WS(str);
     int dot_pair = 0;
@@ -224,7 +230,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     }
     uint32_t index2;
     res = read_value(&str, &index2, !dot_pair);
-    if (!res) return 0;
+    if (res!=1) return res;
 
     if (dot_pair) { /* consume the final )  */
       SKIP_WS(str);
@@ -241,7 +247,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
   if (*str == '#' && *(str+1) == '(') {  /* literal vector */
     str+=2;
     int res = read_vector(&str, &index);
-    if (res == 0) return 0;
+    if (res != 0) return res;
     *pindex = index; *pstr = str;
     return 1;
   }
@@ -296,7 +302,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     str++;
     uint32_t indices[2];
     int res = read_value(&str, &indices[1], 0);
-    if (!res) return 0;
+    if (res!=1) return res;
     char *quote = "quote";
     indices[0] = store_string(quote, quote+5, T_SYM);
     *pindex = make_list(indices, 2);
@@ -708,9 +714,10 @@ uint32_t eval(uint32_t index, uint32_t env) {
   }
 }
 
-int main(int argc, char **argv) {
-  char buf[512];
+#define LINE_MAX 20000
+char buf[LINE_MAX];
 
+int main(int argc, char **argv) {
   init_cells();
   add_symbol_table();  /* for the global environment */
   toplevel_env = make_env(10000, 1);
@@ -718,23 +725,42 @@ int main(int argc, char **argv) {
 
   while(1) {
     printf("%d cells> ", next_cell);
-    if (fgets(buf, 512, stdin) == 0) { 
-      if (feof(stdin)) return 0;
-      else die("fgets() failed");
-    }
-    char *str = buf;
     uint32_t index;
-    int can_read = read_value(&str, &index, 0);
-    if (can_read) {
-      uint32_t prepared = prepare(index, 0);
-      if (prepared) {
-        printf("prepared: "); dump_value(prepared, 0); putchar('\n');
-      } else printf("prepare failed.\n");
-        uint32_t res = eval(prepared, toplevel_env);
-        if (res) {
-          dump_value(res, 0); printf("\n");
-        } else printf("eval failed.\n");
-    } else printf("failed reading at: %s\n", str);
+    int can_read;
+    char *str;
+    buf[0] = '\0';
+    while(1) {
+      int size = strlen(buf);
+      if (size + 512 > LINE_MAX) die("input line too long");
+      if (fgets(buf+size, 512, stdin) == 0) {
+        if (feof(stdin)) return 0;
+        else die("fgets() failed");
+      }
+      str = buf;
+      if ((can_read = read_value(&str, &index, 0)) == -1) {
+        printf("... ");
+        continue;  /* read more */
+      }
+      break;
+    }  
+    if (!can_read) {
+      printf("failed reading at: %s\n", str);
+      continue;
+    }
+
+    uint32_t prepared = prepare(index, 0);
+    if (!prepared) {
+      printf("failed preparing.\n");
+      continue;
+    }
+      
+    uint32_t res = eval(prepared, toplevel_env);
+    if (!res) {
+      printf("eval failed.\n");
+      continue;
+    }
+    
+    dump_value(res, 0); printf("\n");
   }
   return 0;
 }
