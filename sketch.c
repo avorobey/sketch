@@ -387,8 +387,18 @@ void dump_value(uint32_t index, int implicit_paren) {
 }
 
 uint32_t prepare(uint32_t index) {
+  uint32_t slot, frame;
+  int res;
   switch(TYPE(index)) {
     case T_SYM:
+      res = find_symbol(STR_START(index), STR_LEN(index), &slot, &frame);
+      if (res) {
+        uint32_t var = store_var(slot, frame);
+        return var;
+      } else {
+        printf("Undefined variable: "); dump_value(index, 0);
+        return 0;
+      }
       break;
     case T_PAIR:
       break;
