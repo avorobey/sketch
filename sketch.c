@@ -169,9 +169,9 @@ int read_vector(char **pstr, uint32_t *pindex) {
     SKIP_WS(str);
     if (*str == ')') break;
     int res = read_value(&str, &indices[cur_index], 0);
-    if (res != 1) { 
+    if (!res) { 
       if (malloced) free(indices);
-      return res;
+      return 0;
     }
     cur_index++;
     if (cur_index >= max_index) {  /* need to grow */
@@ -207,8 +207,6 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
   uint32_t index = next_cell;
 
   SKIP_WS(str);
-  if (*str == '\0') return -1;
-
   if (implicit_paren || *str == '(') {
     if (!implicit_paren) ++str;
     SKIP_WS(str);
@@ -220,7 +218,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     }
     uint32_t index1;
     int res = read_value(&str, &index1, 0);
-    if (res!=1) return res;
+    if (!res) return 0;
 
     SKIP_WS(str);
     int dot_pair = 0;
@@ -230,7 +228,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     }
     uint32_t index2;
     res = read_value(&str, &index2, !dot_pair);
-    if (res!=1) return res;
+    if (!res) return 0;
 
     if (dot_pair) { /* consume the final )  */
       SKIP_WS(str);
@@ -247,7 +245,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
   if (*str == '#' && *(str+1) == '(') {  /* literal vector */
     str+=2;
     int res = read_vector(&str, &index);
-    if (res != 0) return res;
+    if (!res) return 0;
     *pindex = index; *pstr = str;
     return 1;
   }
@@ -302,7 +300,7 @@ int read_value(char **pstr, uint32_t *pindex, int implicit_paren) {
     str++;
     uint32_t indices[2];
     int res = read_value(&str, &indices[1], 0);
-    if (res!=1) return res;
+    if (!res) return 0;
     char *quote = "quote";
     indices[0] = store_string(quote, quote+5, T_SYM);
     *pindex = make_list(indices, 2);
