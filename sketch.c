@@ -654,20 +654,6 @@ uint32_t eval(uint32_t index, uint32_t env) {
             else return C_UNSPEC;
           }
         }
-
-        if (IS_SYMBOL(func, "lambda")) {
-          int len = length_list(args);
-          if (len == -1 || len < 2) die("bad lambda syntax");
-          uint32_t args_list = CAR(args);
-          if (!check_list(args_list, 0, 0)) die ("bad lambda argument list");
-          /* TODO: check that args_list actually contains only symbols and
-             they don't repeat */
-          uint64_t value = T_FUNC; 
-          CHECK_CELLS(1);
-          uint32_t index = next_cell;
-          cells[next_cell++] = value | (uint64_t)args << 32;
-          return index;
-        }
       }
 
       /* special forms end here. Now eval the first element and check
