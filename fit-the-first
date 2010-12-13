@@ -1,21 +1,65 @@
-My aim in this project is to write a small toy interpreter of Scheme, in C, and to document the way the codebase grows and all the important decisions are made. 
+Time to get started. I will try to write the code and this running commentary simultaneously.
 
-Initially I just wanted to write the interpreter, but then at some point I realized I'd spent a month thinking about it now and again, procrastinating rather than writing any code. I decided to blog about my progress, and that seemed to give me the motivational kick I needed. I'll be doing most of the coding simultaneously with the writing about it, structured in a series of fits. It'd be nice to finish all the important stuff in eight fits.
+A spec for a compact standard Scheme is at http://www.schemers.org/Documents/Standards/R5RS/.
 
-Here's a small FAQ.
+As I'm writing something that's not meant to be a full-blown Scheme, I shall call it Sketch.
 
-Q: Why?
-A: To scratch an itch. Because I haven't written any non-work code lately and I miss that. Because I want to see for myself which parts will be trivial and which ones tricky. I don't expect the end product to be useful to anyone.
+The primary guiding principle: code as simple as possible. Secondary principle, far less important: performance.
 
-Q: Why Scheme?
-A: It's a simple, compact language, yet it has closures, lexical scoping and garbage collection. It barely has any syntax, so no need to mess around with parsing too much. I have some idea of the essense of the language, but never actually wrote in it; it'll be interesting to subject this belief of "having some idea" to a reality check.
+====================Fit The First================
 
-Q: Why in C? Why an interpreter?
-A: A whim to some degree. Perhaps I want to make it relatively fast while retaining the simplicity of the code. Also, it's been a while since I wrote in pure C.
+----------Tutorial----------------
 
-Q: Is there anything else like it already?
-A: There are dozens of toy Scheme interpreters, in all kinds of languages, including C. I've seen some of them, haven't studied their sources closely, and won't now before I finish this project.
+Scheme is a very simple language. The basic units you work with are 'values': values
+can be given to a function, returned from a function, put into a variable. Types of
+values include several primitive types: numbers, strings, etc. - and the all-important
+composite type: the list.
 
-Q: How much of a toy?
-A: I'd like it to have real garbage collection, real tail recursion support, real lexical scoping, closures and macros. The core of the language, basically. 
+Examples of values (more precisely, strings that would become these values if a Scheme
+parser reads them):
+
+3 - an integer
+3.5 - a real number
+#t - boolean true
+#\A - a character, latin capital A
+"foobar" - a string
+foobar - a symbol; similar to a string, but not quite the same thing. Used to name
+functions, variables, etc.
+
+(3 "foo" 4.5) - a list containing three values; values in a list are separated by spaces
+or more generally by whitespace.
+
+(3 "foo" (4 #t) 5) - a list with a nested list inside it.
+
+Any value can be _evaluated_, and doing that gives you another value. For primitive values
+this doesn't mean anything, they "evaluate" to themselves. If you evaluate 3.5, you get 3.5.
+The real importance of evaluation is in how it works on lists. When "evaluating" a list, 
+the first value in it is taken to be a name of a function, all the other values - its arguments,
+the function is called with these arguments, and what it returns is the result of the evaluation:
+
+(+ 3 5.5) - this is a list of three values: a symbol +, and numbers 3 and 5.5. The symbol +
+is connected, via some mechanism to be explained later, with the built-in addition function. Now
+if we _evaluate_ the value (+ 3 5.5), this built-in function is called with arguments 3 and 5.5,
+and returns 8.5, therefore that is the result of the evaluation.
+
+(foo 4 (* 2 5)) is a list of three values, one of which is itself a list. When this list is
+evaluated, first each of the arguments is evaluated: 4 evaluates to itself, while (* 2 5)
+evaluates to 10, and then some funciton named foo, defined elsewhere, is called with arguments 4 and 10. Whatever it returns is the result of the evaluation.
+
+A program in Scheme is a list of values. To run a program means to read these values and evaluate them in order. Some of these values invoke built-in functions which define new functions, such as 'foo'. Then later 'foo' itself may be invoked. As a result, two very different kinds of syntax in C: "2+4" and "int foo(int a) { return a+5; }" look like one kind of syntax in Scheme, a value: (+ 2 4) and (define (foo a) (+ a 5)).
+
+Actually, I lied about the list: it isn't really a fundamental type of values. It's a fiction that makes it easier to write things down. Lists are really composed of pairs, where a pair _is_ a fundamental type: it's a value that holds two other values (of any type). Pairs can be written using the syntax ( . ):
+
+(3 . "abc") is a value that is a pair. The first value in this pair is 3, the second "abc". Tradictionally the first value in a pair is called car, the second cdr, and these are the names of built-in functions that fetch first/second values out of a pair.
+
+Lists are built from nested pairs: a list is a pair, in which the first value is the first element of the list, and the second value is a new pair, in which the first value is the second element of the list, and the second value is a new pair...
+
+(3 4 "abc") is the same as
+
+(3 . (4 . ("abc" . () ) ) )
+
+Here () is a special object "the empty list", which finishes the nested iteration of pairs.
+
+---------------braindump-------------------
+
 
